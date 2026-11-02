@@ -68,3 +68,16 @@ one local page to start, watch and read the experiments. See [experiments/README
 ![Experiments portal](experiments/portal/docs/portal.png)
 
 Screenshots were taken by `scripts/review/app_screenshot.py` on the review's real records; where a paper is shown it is Shawkat et al. 2025, published under CC BY 4.0.
+
+## Third-party code, models and data
+
+None of it is redistributed here; the harnesses clone the repositories at the commits named and the paper cites the works. Cite them, not this repository, for what they contributed.
+
+- **zkPET**: n2721 Code: https://github.com/CaixiangFan/zkpet (MIT, commit e96153d).
+- **FL-BC-IDS**: n3378 Code: https://github.com/wisamalwashYildiz/FL-BC-IDS (MIT, commit 0bd5732).
+- **FoolsGold (the Sybil label-flipping protocol)**: fung2020 Code: https://github.com/DistributedML/FoolsGold (MIT, commit 0aa5511).
+- **Explanation-guided clean-label backdoor**: severi2021 Code: https://github.com/ClonedOne/MalwareBackdoors (MIT, commit 7e3ba27).
+- **CICIoV2024 data set**: neto2024 https://www.unb.ca/cic/datasets/iov-dataset-2024.html (from its publisher).
+- **Tabler Icons** (MIT): the icons of the figures, copies and licence in `myliteraturereviewpaper/ppml2026/icons/tabler/`.
+- **DeBERTa-v3-large NLI model** by Moritz Laurer (`MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` on Hugging Face), downloaded by the local checker at set-up; see its model card for the licence and the training data.
+
