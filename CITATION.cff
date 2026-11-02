@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use these scripts, tools or records, please cite them as below."
+title: "Privacy-preserving machine learning in next-generation IoT security: the scripts, tools and records of the systematic review"
+authors:
+  - family-names: Zareen
+    given-names: Shakir
+    orcid: "https://orcid.org/0009-0005-2841-4373"
+    affiliation: "Abertay University, Dundee, U.K."
+version: "v86"
+date-released: "2026-11-02"
+license: MIT

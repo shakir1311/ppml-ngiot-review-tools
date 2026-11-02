@@ -1,0 +1,25 @@
+[project]
+name = "pdf-text-extractor"
+version = "1.1.1"
+description = "Extract the full text of PDF papers, verified by several engines and local OCR, with sections, figures and tables"
+requires-python = ">=3.12,<3.13"
+# The start scripts install these with ready-built wheels only, the newest versions that have a build for the computer at hand
+# (so no compiler is needed): an older Mac gets older builds, a new one the newest.
+dependencies = [
+    "PySide6>=6.6,<7",                    # the window
+    "pymupdf>=1.24.10,<2",                # MuPDF: the reading text, renders, outline, figures, tables
+    "pypdfium2>=4.30,<6",                 # PDFium: a second, independent reading of the text layer
+    "pdfminer.six>=20231228",             # pdfminer: a third reading, with its own layout analysis (columns)
+    "rapidocr-onnxruntime>=1.3.24,<2",    # OCR that runs on Windows and macOS alike (PaddleOCR models on ONNX Runtime)
+    "english-words>=2.0.1,<3",            # a word list, to tell a word from an OCR misreading on every system
+    "numpy>=1.26,<3",
+    "pillow>=10.0,<13",
+    "pyobjc-framework-Vision>=10.0,<13; sys_platform == 'darwin'",   # Apple Vision OCR, on a Mac
+    "pyobjc-framework-Quartz>=10.0,<13; sys_platform == 'darwin'",
+]
+
+[project.scripts]
+pdf-text-extractor = "pdftextextractor.gui:main"
+
+[tool.uv]
+package = false

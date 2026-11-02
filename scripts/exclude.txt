@@ -1,0 +1,11 @@
+# Paths left out of the extraction, one per line.
+# A line with a slash is a path relative to corpus/ (the folder and everything under it).
+# A line without a slash is a folder name excluded wherever it occurs.
+
+_duplicates
+_extraction
+_excluded
+
+# Left out at the author's request (28 Sep 2026): PhD theses, a call for papers and a textbook. The author has since
+# moved this folder out of corpus/ (to theses/ at the top of the workspace); the line stays in case it is moved back.
+oldcorpus/9Mar2026/theses

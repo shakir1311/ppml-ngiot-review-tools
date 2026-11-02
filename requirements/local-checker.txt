@@ -1,0 +1,11 @@
+accelerate==1.15.0
+huggingface_hub==2.2.0
+numpy==2.5.4
+rank-bm25==0.2.2
+safetensors==0.8.0
+scipy==1.18.1
+sentencepiece==0.2.2
+tokenizers==0.23.3
+torch==2.14.1
+tqdm==4.70.1
+transformers==5.19.0

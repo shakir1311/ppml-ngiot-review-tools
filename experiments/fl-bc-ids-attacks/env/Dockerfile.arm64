@@ -1,0 +1,41 @@
+# FL-BC-IDS experiment environment, native arm64 variant (the default on this Mac): the same contents as Dockerfile, but
+# Python and Ray run natively (Ray's object store breaks when the whole process runs under Rosetta); dp-xgboost builds
+# from source for aarch64; only the circom compiler, which has no arm64 release, is the amd64 binary and runs through the
+# VM's Rosetta binfmt registration. The clone is never copied into the image.
+FROM --platform=linux/arm64 python:3.12.10-slim-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive PIP_NO_CACHE_DIR=1 PYTHONUNBUFFERED=1
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential cmake git curl ca-certificates libgomp1 libomp-dev pkg-config xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node 24 (environment/node_version.txt: v24.19.0), arm64 tarball
+ARG NODE_VERSION=24.19.0
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-arm64.tar.xz" -o /tmp/node.tar.xz \
+    && mkdir -p /opt/node && tar -xJf /tmp/node.tar.xz -C /opt/node --strip-components=1 && rm /tmp/node.tar.xz
+ENV PATH="/opt/node/bin:${PATH}"
+
+# circom 2.1.8 (environment/circom_version.txt): amd64 release binary, executed through Rosetta inside the arm64 VM;
+# it is dynamically linked, so the x86-64 C runtime comes from Debian's multiarch packages
+RUN dpkg --add-architecture amd64 && apt-get update \
+    && apt-get install -y --no-install-recommends libc6:amd64 libgcc-s1:amd64 libstdc++6:amd64 \
+    && rm -rf /var/lib/apt/lists/* \
+    && curl -fsSL "https://github.com/iden3/circom/releases/download/v2.1.8/circom-linux-amd64" -o /usr/local/bin/circom \
+    && chmod +x /usr/local/bin/circom && circom --version
+
+# the repository's locked Node dependencies (snarkjs 0.7.5, circomlib, circomlibjs), installed outside the clone
+COPY node-env/package.json node-env/package-lock.json /opt/node-env/
+RUN cd /opt/node-env && npm ci --no-audit --no-fund && ls node_modules/.bin/snarkjs
+
+# the repository's pinned Python dependencies; dp-xgboost 0.2.10 builds from source (no wheel for Python 3.12 or arm64)
+COPY requirements-repro.txt /opt/requirements-repro.txt
+# setuptools held below 81: dp_xgboost/compat.py still imports pkg_resources (the authors' freeze has setuptools 80.9)
+RUN python -m pip install --upgrade pip "setuptools<81" wheel \
+    && pip install -r /opt/requirements-repro.txt
+RUN python -c "import dp_xgboost, xgboost, flwr, ray, web3, dask; print('ok', xgboost.__version__, flwr.__version__)"
+
+ENV FLBCIDS_NODE_MODULES=/opt/node-env/node_modules ANCHOR_ZKP_NODE_MODULES=/opt/node-env/node_modules \
+    ANCHOR_ZKP_CIRCOM_LINK_LIBS=/opt/node-env/node_modules CIRCOM_LINK_LIBS=/opt/node-env/node_modules \
+    ANCHOR_ZKP_CIRCOM_CMD=circom ANCHOR_ZKP_NODE_CMD=node
+WORKDIR /work
+CMD ["bash"]

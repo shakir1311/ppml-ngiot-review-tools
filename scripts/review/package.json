@@ -1,0 +1,15 @@
+{
+  "name": "review",
+  "version": "1.0.0",
+  "description": "",
+  "main": "render_docx.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "docx": "^9.8.1"
+  }
+}
