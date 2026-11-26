@@ -44,7 +44,7 @@ def main():
     s['sv_core_yes'] = sum(1 for k in sec if all(T.V(S[k], 'S1', f) == 'subject' for f in ('fabric', 'privacy', 'trust')))
     s['sv_threats_yes'] = sum(1 for k in sec if all(T.V(S[k], 'S1', f) == 'subject' for f in ('poisoning', 'malicious_fake', 'free_riding')))
     s['sv_core_and_threats'] = sum(1 for k in sec if all(T.V(S[k], 'S1', f) == 'subject' for f in ('fabric', 'privacy', 'trust', 'poisoning', 'malicious_fake', 'free_riding')))
-    D.md_table('surveys_v68', 'Subjects treated by each included survey, by review question',
+    D.md_table('surveys_v68', 'Subjects treated by each included survey, by study question',
                ['Survey', 'Year'] + [c for _, c in cols], rows, note='Yes: a subject of its own (a section, subsection or table); Partial: mentioned; No: absent. The last row is this review.')
 
     # ---- eligibility criteria in plain words (V79): the paper's table; the full criteria as recorded, with their codes, go to the supporting document
@@ -56,9 +56,8 @@ def main():
         ['', 'A survey is published in 2024 or later, or is cited at least 100 times.'],
         ['Excluded, any of', 'Retracted; a duplicate or an earlier version of an included study; only an unedited early-access version available.'],
         ['', 'Not a full paper (editorial, poster, extended abstract, thesis, book) or not a study (position or opinion paper).'],
-        ['', 'Privacy, the learning or the setting is incidental: for a design, no privacy mechanism or privacy analysis of its own; for a survey, privacy named but not treated.'],
-        ['', 'A design without a blockchain or distributed ledger; a study that treats none of the subjects above in substance.'],
-        ['', 'A survey published before 2024 and cited fewer than 100 times.']], widths=[16, 84])
+        ['', 'Privacy, the learning or the setting is incidental: for a design, no privacy mechanism or privacy analysis of its own; for a survey, privacy named but not treated.']],
+               widths=[16, 84])     # V95: the two exclusion rows that restated inclusion rows in the negative removed
 
     # ---- costs reported and where measured -------------------------------------------------------------------------
     COST = [('computation-time', 'Computation or training time'), ('latency', 'Latency'), ('throughput', 'Throughput'), ('storage', 'Storage or memory'),
@@ -157,8 +156,7 @@ def main():
                 ['S1', 'Related surveys', 'What the survey treats: the NG-IoT fabric, privacy mechanisms, the blockchain and the checking of updates, attacks and defences, data-protection law; poisoning, malicious or fake participants, free riding', 'each: subject, mentioned or absent']])
     qp = B / 'tables' / 'qa_primary.md'
     qp.write_text(qp.read_text(encoding='utf-8').replace('{{TAB:qa_checklist}}', '{{TAB:qa_checklist_v68}}'), encoding='utf-8')
-    cp = B / 'tables' / 'chars_primary.md'                                    # the designs table: an "other: …" value reads "other"
-    cp.write_text(re.sub(r'other: [^|,]+', 'other', cp.read_text(encoding='utf-8')), encoding='utf-8')
+    # the designs table prints each tag by its label and an "other: …" value as "other" (thematic.tags_short, V89)
     pv = B / 'tables' / 'privacy.md'                                          # the body spells TEE out once, in the background
     pv.write_text(re.sub(r'[Tt]rusted execution environments? \(TEE\)', 'TEE', pv.read_text(encoding='utf-8')), encoding='utf-8')
     for name, pairs in (('ledger', [('Section III-E', 'Section IV-C')]), ('ai_use', [('Section IX-B', 'Section VII-A')])):   # the frame's section numbers
@@ -168,6 +166,8 @@ def main():
     import figures_v68
     refs = json.loads((ROOT / 'myliteraturereviewpaper' / 'ppml2026' / 'refs.json').read_text(encoding='utf-8'))
     dy, vy, srows, drows = figures_v68.main(s, S, fin, refs)
+    import figures_v95                                                      # V95: the result charts that replace eight count tables
+    figures_v95.main(S, prim)
     rows = []
     for y in range(2020, 2027):
         ks = [k for k in prim if year[k] == y]
@@ -200,11 +200,14 @@ def main():
     s['prim_2024_on'] = sum(1 for k in prim if year[k] >= 2024)
     s['set_single'] = sum(1 for v in ('communication_network', 'uav_space', 'maritime', 'supply_chain') if s.get(f'set_{v}') == 1)
     (B / 'stats.json').write_text(json.dumps(s, indent=1, ensure_ascii=False), encoding='utf-8')
-    caps = {'roadmap': 'Roadmap of the review: from each question\'s data items, through the sections that answer it, to the open issue, the condition and the deliverable',
-            'years': 'Included studies per year, designs and surveys shown apart.',
+    caps = {'roadmap': 'Roadmap of the review: from each question\'s data items, through the sections that answer it, to the open issue, the condition and the part of the agenda that takes it up',
+            'years': 'Included studies per year, with the designs that test a named attack and those that measure a cost on device-class hardware',
+            'sq1_costs': 'Evaluation of the designs: (a) where they measured a cost; (b) where they were evaluated; (c) the largest scale they report',
+            'sq2_privacy': 'Privacy and trust in the designs: (a) privacy mechanisms, and those concealing the update from the aggregator; (b) what the ledgers hold; (c) the parties still trusted',
+            'sq3_checks': 'What the designs check, and whether the checking party sees the update; each design is counted once, under the most it checks',
             'survey_coverage': 'Subjects treated by each included survey, graded as in {{TAB:surveys_v68}}',
-            'prim_coverage': 'What each design shows towards the three conditions, graded Yes, Partial or No from its record',
-            'design': 'Reference design of the agenda in three layers: gateways train on their own data and send each update as secret shares with answers on labelled test rows; validators mark the answers and sum the shares jointly, seeing no whole update; the ledger records fingerprints and verdicts only. A clean-label backdoor passes the test and stays open.',
+            'prim_coverage': 'What each design shows towards the three conditions, graded Yes, Partial or No from its record, with the number of designs graded Yes',
+            'design': 'Reference design of the agenda in three layers: gateways train on their own data and send each update, with their model\'s answers on labelled test rows, as secret shares; validators mark the answers and sum the updates jointly, seeing neither whole; the ledger records fingerprints and verdicts only. A clean-label backdoor passes the test and stays open.',
             'prisma': 'Identification, screening and inclusion of the studies, as the PRISMA 2020 flow with both searches combined',
             'architecture': 'Where learning, privacy protection, checking and the ledger sit on the tiers of an NG-IoT deployment, and where the threats come in',
             'threats': 'Threats the designs address, and those for which they report a test of the design by an attack, with the attacks on the learning apart from the properties of the system.'}

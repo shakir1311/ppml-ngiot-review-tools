@@ -38,45 +38,60 @@ def attack_table():
         bd = f"{pct(r1.get('severi_success_vs_clean_fl'))} / {pct(r2.get('severi_success_vs_clean_fl'))}" if k[0] == 'severi' else '–'
         probe = f"{r1.get('aq_attackers_below_honest_recall') or '–'} / {r2.get('aq_attackers_below_honest_recall') or '–'}" if k[0] != 'none' else '–'
         out.append([label[key][0], label[key][1], adm, passed, bd, probe])
+    # V95: the paper's table without the constant column (every attacker admitted, all five proofs verified: said in the text) and
+    # with the attackers in the attack's cell; the table as recorded goes to the supporting document
+    setting = {('none', ''): 'None (clean pipeline)', ('foolsgold', '1'): 'Sybil label flipping (FoolsGold protocol), 1 Sybil added per RSU',
+               ('foolsgold', '5'): 'Sybil label flipping (FoolsGold protocol), 5 Sybils added per RSU',
+               ('severi', '0.01'): 'Clean-label backdoor (Severi protocol), 4 of the 16 vehicles per RSU, 1% of training rows',
+               ('severi', '0.04'): 'Clean-label backdoor (Severi protocol), 4 of the 16 vehicles per RSU, 4% of training rows'}
+    keys = [key for key in [('none', ''), ('foolsgold', '1'), ('foolsgold', '5'), ('severi', '0.01'), ('severi', '0.04')]
+            if key in by or any(kk[0] == key[0] and (kk[1] or '') == key[1] for kk in by)]
     D.md_table('experiment_attacks', 'FL-BC-IDS as released under two published attack protocols on CICIoV2024',
-               ['Attack', 'Attackers per RSU', 'Admitted, proofs', 'Attack flows passed', 'Backdoor success', 'Probe check'], out, note='Two RSUs with 16 honest vehicles each; two runs per setting (run 1 / run 2). Admitted: attackers admitted and anchor-sum proofs verified. Attack flows passed: share of the test attack rows called benign (clean pipeline: 8% in both runs). Backdoor success: among the attack rows the clean federated model still detects with the trigger, the share the attacked model passes. Probe check: attackers whose recall on the labelled attack probes falls below every honest vehicle\'s.')
+               ['Attack', 'Attack flows passed', 'Backdoor success', 'Probe check'], [[setting[key]] + r[3:] for key, r in zip(keys, out)],
+               widths=[40, 20, 20, 20],
+               note='Two RSUs of 16 vehicles each, the Sybils added to them and the backdoor\'s attackers among them; two runs per setting (run 1 / run 2). '
+                    'Attack flows passed: share of the test attack rows called benign. Backdoor success: among the attack rows the clean federated model '
+                    'still detects with the trigger, the share the attacked model passes. Probe check: attackers whose recall on the labelled attack probes '
+                    'falls below every honest vehicle\'s.')
+    D.md_table('experiment_attacks_full', 'FL-BC-IDS as released under two published attack protocols on CICIoV2024, every column recorded',
+               ['Attack', 'Attackers per RSU', 'Admitted, proofs', 'Attack flows passed', 'Backdoor success', 'Probe check'], out, note='Two RSUs of 16 vehicles each, the Sybils added to them and the backdoor\'s attackers among them; two runs per setting (run 1 / run 2). Admitted: attackers admitted and the proofs of the anchors\' aggregation verified. Attack flows passed: share of the test attack rows called benign (clean pipeline: 8% in both runs). Backdoor success: among the attack rows the clean federated model still detects with the trigger, the share the attacked model passes. Probe check: attackers whose recall on the labelled attack probes falls below every honest vehicle\'s.')
     return out
 
 
 def sweep_figure():
     rows = list(csv.DictReader(open(SWEEP))); rows.sort(key=lambda r: int(r['vehicles']))
-    W, H = 1180, 520; left, right, top, bottom = 110, 60, 50, 110
+    W, H = 1180, 520; left, right, top, bottom = 136, 60, 50, 110
     pw, ph = W - left - right, H - top - bottom; n = len(rows)
     xs = [left + pw * (i + 0.5) / n for i in range(n)]
     def Y(v): return top + ph * (1 - float(v))
     b = []
     for t in (0, 0.2, 0.4, 0.6, 0.8, 1.0):
         b.append(f'<line x1="{left}" y1="{Y(t):.1f}" x2="{left + pw}" y2="{Y(t):.1f}" stroke="{GREY}" stroke-width="1" stroke-dasharray="3,4"/>')
-        b.append(F.text(left - 12, Y(t) + 5, f'{t:.1f}', 14, 'normal', anchor='end', fill=INK2))
+        b.append(F.text(left - 12, Y(t) + 6, f'{t:.1f}', 19, 'normal', anchor='end', fill=INK2))
     b.append(f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + ph}" stroke="{F.INK}" stroke-width="1.3"/>')
     b.append(f'<line x1="{left}" y1="{top + ph}" x2="{left + pw}" y2="{top + ph}" stroke="{F.INK}" stroke-width="1.3"/>')
     for i, r in enumerate(rows):
-        b.append(F.text(xs[i], top + ph + 24, r['vehicles'], 15, 'bold', fill=F.INK))
-        b.append(F.text(xs[i], top + ph + 44, f"{int(r['rows_per_vehicle']):,} rows", 12, 'normal', fill=INK2))
-    b.append(F.text(left + pw / 2, top + ph + 72, 'Vehicles in all (2 RSUs), and training rows per vehicle', 14, 'normal', fill=INK2))
-    b.append(F.text(48, top + ph / 2 - 10, ['Global', 'ensemble', 'score'], 13, 'normal', fill=INK2))
+        b.append(F.text(xs[i], top + ph + 26, r['vehicles'], 20, 'bold', fill=F.INK))
+        b.append(F.text(xs[i], top + ph + 50, f"{int(r['rows_per_vehicle']):,} rows", 19, 'normal', fill=INK2))
+    b.append(F.text(left + pw / 2, top + ph + 82, 'Vehicles in all (2 RSUs), and training rows per vehicle', 19, 'normal', fill=INK2))
+    b.append(F.text(52, top + ph / 2 - 10, ['Global', 'ensemble', 'score'], 19, 'normal', fill=INK2))
     # the break band between the last point that holds and the first that does not
     i_break = next(i for i, r in enumerate(rows) if float(r['ens_f1']) < 0.9)
     bx1, bx2 = (xs[i_break - 1] + xs[i_break]) / 2 - 2, (xs[i_break - 1] + xs[i_break]) / 2 + 2
     b.append(f'<rect x="{bx1 - 10:.1f}" y="{top}" width="20" height="{ph}" fill="{F.RED_L}" opacity="0.8"/>')
-    b.append(F.text(bx1 - 16, Y(0.62), ['utility gives way:', f'{rows[i_break - 1]["per_rsu"]} to {rows[i_break]["per_rsu"]} vehicles per RSU'], 13, 'bold', anchor='end', fill=RED))
+    b.append(F.text(bx1 - 16, Y(0.62), ['utility gives way:', f'{rows[i_break - 1]["per_rsu"]} to {rows[i_break]["per_rsu"]} vehicles per RSU'], 19, 'bold', anchor='end', fill=RED))
     for key, col in (('ens_acc', NAVY), ('ens_f1', RED)):
         pts = ' '.join(f'{xs[i]:.1f},{Y(r[key]):.1f}' for i, r in enumerate(rows))
         b.append(f'<polyline points="{pts}" fill="none" stroke="{col}" stroke-width="3"/>')
         for i, r in enumerate(rows):
             b.append(f'<circle cx="{xs[i]:.1f}" cy="{Y(r[key]):.1f}" r="6" fill="{col}" stroke="#fff" stroke-width="1.5"/>')
     for i, r in enumerate(rows):                      # one label per point for F1 (below), and for accuracy only where the two part
-        b.append(F.text(xs[i], Y(r['ens_f1']) + 22, f'{float(r["ens_f1"]):.2f}', 12, 'normal', fill=RED))
-        if float(r['ens_acc']) - float(r['ens_f1']) > 0.03: b.append(F.text(xs[i], Y(r['ens_acc']) - 12, f'{float(r["ens_acc"]):.2f}', 12, 'normal', fill=NAVY))
+        b.append(F.text(xs[i], Y(r['ens_f1']) + 26, f'{float(r["ens_f1"]):.2f}', 19, 'normal', fill=RED))
+        if float(r['ens_acc']) - float(r['ens_f1']) > 0.03: b.append(F.text(xs[i], Y(r['ens_acc']) - 14, f'{float(r["ens_acc"]):.2f}', 19, 'normal', fill=NAVY))
     lx, ly = left + 30, top + ph - 60
     for j, (col, lab) in enumerate(((NAVY, 'Accuracy of the global ensemble'), (RED, 'F1 of the global ensemble'))):
-        b.append(f'<line x1="{lx}" y1="{ly + j * 22}" x2="{lx + 30}" y2="{ly + j * 22}" stroke="{col}" stroke-width="3"/>')
-        b.append(F.text(lx + 40, ly + j * 22 + 5, lab, 14, 'normal', anchor='start', fill=F.INK))
+        b.append(f'<line x1="{lx}" y1="{ly + j * 26}" x2="{lx + 30}" y2="{ly + j * 26}" stroke="{col}" stroke-width="3"/>')
+        b.append(F.text(lx + 40, ly + j * 26 + 6, lab, 19, 'normal', anchor='start', fill=F.INK))
     (F.OUT / 'sweep.data.json').write_text(json.dumps({'kind': 'lines', 'x': [r['vehicles'] for r in rows], 'rows_per_vehicle': [r['rows_per_vehicle'] for r in rows],
                                                       'accuracy': [r['ens_acc'] for r in rows], 'f1': [r['ens_f1'] for r in rows], 'source': str(SWEEP.relative_to(ROOT))}, indent=1), encoding='utf-8')
     return F.render('sweep', W, H, ''.join(b))
@@ -89,31 +104,31 @@ def anchor_figure():
         e = json.load(open(pathlib.Path(run) / 'attack_eval.json')); aq = e['anchor_quality_check']; att = set(e['attackers'])
         pv = [(int(v), d['attack_recall'], int(v) in att) for v, d in aq['per_vehicle'].items()]; pv.sort()
         panels.append((title, pv, aq['honest']['attack_recall_min'], aq['attack_anchors'], pathlib.Path(run).name))
-    W, H = 1180, 600; left, gap, top, bottom = 120, 60, 60, 120; pw = (W - left - gap - 40) // 2; ph = H - top - bottom
+    W, H = 1180, 600; left, gap, top, bottom = 146, 60, 60, 120; pw = (W - left - gap - 40) // 2; ph = H - top - bottom
     def Y(v): return top + ph * (1 - float(v))
     b = []
     for pi, (title, pv, hmin, n_att, run) in enumerate(panels):
         x0 = left + pi * (pw + gap)
-        b.append(F.text(x0 + pw / 2, top - 26, title, 15, 'bold', fill=F.INK))
+        b.append(F.text(x0 + pw / 2, top - 28, title, 20, 'bold', fill=F.INK))
         for t in (0, 0.2, 0.4, 0.6, 0.8, 1.0):
             b.append(f'<line x1="{x0}" y1="{Y(t):.1f}" x2="{x0 + pw}" y2="{Y(t):.1f}" stroke="{GREY}" stroke-width="1" stroke-dasharray="3,4"/>')
-            if pi == 0: b.append(F.text(x0 - 12, Y(t) + 5, f'{t:.1f}', 14, 'normal', anchor='end', fill=INK2))
+            if pi == 0: b.append(F.text(x0 - 12, Y(t) + 6, f'{t:.1f}', 19, 'normal', anchor='end', fill=INK2))
         b.append(f'<line x1="{x0}" y1="{top}" x2="{x0}" y2="{top + ph}" stroke="{F.INK}" stroke-width="1.3"/>')
         b.append(f'<line x1="{x0}" y1="{top + ph}" x2="{x0 + pw}" y2="{top + ph}" stroke="{F.INK}" stroke-width="1.3"/>')
         b.append(f'<line x1="{x0}" y1="{Y(hmin):.1f}" x2="{x0 + pw}" y2="{Y(hmin):.1f}" stroke="{GREEN}" stroke-width="2" stroke-dasharray="8,5"/>')
-        b.append(F.text(x0 + pw - 6, Y(hmin) + 20, f'lowest honest vehicle: {hmin:.2f}', 13, 'normal', anchor='end', fill=GREEN))
+        b.append(F.text(x0 + pw - 6, Y(hmin) + 24, f'lowest honest vehicle: {hmin:.2f}', 19, 'normal', anchor='end', fill=GREEN))
         n = len(pv); step = pw / (n + 1)
         rsu_split = next((i for i, (v, _, _) in enumerate(pv) if v >= 2000), n)
         for i, (v, rec, is_att) in enumerate(pv):
             cx = x0 + step * (i + 1)
             b.append(f'<circle cx="{cx:.1f}" cy="{Y(rec):.1f}" r="{8 if is_att else 6}" fill="{RED if is_att else GREEN}" stroke="#fff" stroke-width="1.5"/>')
-        b.append(F.text(x0 + step * (rsu_split / 2 + 0.5), top + ph + 24, 'RSU 1', 14, 'bold', fill=INK2))
-        b.append(F.text(x0 + step * ((rsu_split + n) / 2 + 0.5), top + ph + 24, 'RSU 2', 14, 'bold', fill=INK2))
-        b.append(F.text(x0 + pw / 2, top + ph + 46, 'one dot per vehicle', 13, 'normal', fill=INK2))
-    b.append(F.text(56, top + ph / 2 - 10, ['Recall on', 'the attack', 'probes'], 13, 'normal', fill=INK2))
+        b.append(F.text(x0 + step * (rsu_split / 2 + 0.5), top + ph + 28, 'RSU 1', 19, 'bold', fill=INK2))
+        b.append(F.text(x0 + step * ((rsu_split + n) / 2 + 0.5), top + ph + 28, 'RSU 2', 19, 'bold', fill=INK2))
+        b.append(F.text(x0 + pw / 2, top + ph + 54, 'one dot per vehicle', 19, 'normal', fill=INK2))
+    b.append(F.text(62, top + ph / 2 - 10, ['Recall on', 'the attack', 'probes'], 19, 'normal', fill=INK2))
     lx, ly = left, H - 24
-    b.append(f'<circle cx="{lx + 8}" cy="{ly - 4}" r="6" fill="{GREEN}"/>'); b.append(F.text(lx + 22, ly, 'honest vehicle', 14, 'normal', anchor='start', fill=F.INK))
-    b.append(f'<circle cx="{lx + 160}" cy="{ly - 4}" r="8" fill="{RED}"/>'); b.append(F.text(lx + 176, ly, 'Sybil (attack rows relabelled benign)', 14, 'normal', anchor='start', fill=F.INK))
+    b.append(f'<circle cx="{lx + 8}" cy="{ly - 4}" r="6" fill="{GREEN}"/>'); b.append(F.text(lx + 24, ly + 2, 'honest vehicle', 19, 'normal', anchor='start', fill=F.INK))
+    b.append(f'<circle cx="{lx + 200}" cy="{ly - 4}" r="8" fill="{RED}"/>'); b.append(F.text(lx + 216, ly + 2, 'Sybil (attack rows relabelled benign)', 19, 'normal', anchor='start', fill=F.INK))
     (F.OUT / 'anchorcheck.data.json').write_text(json.dumps({'kind': 'dots', 'panels': [{'title': t, 'vehicles': [[v, r, a] for v, r, a in pv], 'honest_min': hmin, 'attack_probes': n_att, 'run': run} for t, pv, hmin, n_att, run in panels]}, indent=1), encoding='utf-8')
     return F.render('anchorcheck', W, H, ''.join(b))
 
@@ -160,7 +175,7 @@ def setup_table():
 def main():
     rows = attack_table(); sweep_figure(); anchor_figure(); setup_table()
     caps = {'sweep': 'Utility of FL-BC-IDS as released, scaled from 4 to 200 vehicles on CICIoV2024: accuracy and F1 of the global ensemble, and the training rows per vehicle',
-            'anchorcheck': 'Probe check on the anchor vectors FL-BC-IDS commits, under Sybil label flipping (run 1): each vehicle\'s recall on the 11 labelled attack probes'}
+            'anchorcheck': 'Probe check on the anchors FL-BC-IDS commits (each vehicle\'s predictions on 64 fixed rows), under Sybil label flipping (run 1): each vehicle\'s recall on the 11 labelled attack probes'}
     folder = ROOT / 'myliteraturereviewpaper' / 'ppml2026' / os.environ.get('PPML_PARTS_NAME', 'parts-v82')
     fc = folder / 'figcaps.json'; d = json.loads(fc.read_text(encoding='utf-8')) if fc.exists() else {}
     d.update(caps); fc.write_text(json.dumps(d, indent=1), encoding='utf-8')

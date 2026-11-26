@@ -1,10 +1,10 @@
 # The tools of the systematic review "Privacy Preserving Machine Learning in Next Generation IoT (NG-IoT) Security"
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23895402.svg)](https://doi.org/10.5281/zenodo.23895402)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23895401.svg)](https://doi.org/10.5281/zenodo.23895401)
 
-The scripts and applications built for the review, as used for version v86 of the paper. Licence: MIT. Cite with CITATION.cff.
+The scripts and applications built for the review, as used for version v97 of the paper. Licence: MIT. Cite with CITATION.cff.
 The records the review is built on (search provenance, screening decisions, extraction records with their tags, the paper's parts and build outputs,
-the experiment run summaries) are archived with these tools at Zenodo: https://doi.org/10.5281/zenodo.23895402. No paper text and no database export is published anywhere.
+the experiment run summaries) are archived with these tools at Zenodo: https://doi.org/10.5281/zenodo.23895401. No paper text and no database export is published anywhere.
 
 ## What is here
 

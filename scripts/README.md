@@ -75,6 +75,12 @@ footnote placed differently scores 0.8 and more. A page is **confirmed** at 0.80
 A page that no witness confirms — nearly always a table, a figure with many labels or a list — is marked in
 `full.txt` and must be read against its render; the notes checker insists that the coverage log names it.
 
+`pdftotext` is run once over the whole PDF and its output split at the form feeds between pages. Since 16 November 2026,
+when that split gives more chunks than the PDF has pages (some LaTeX PDFs, such as those of Elsevier's `cas` class, carry
+form feeds inside a page), `page_text.poppler_pages` reads the PDF page by page instead and treats a form feed inside a
+page as a line break; the paper's warnings record "pdftotext read page by page". Before that, such a paper had no
+`pdftotext` reading at all and failed the audit (Z09 of the new designs, `design-evaluation/new-designs/`).
+
 Until 28 September 2026 the page text was sorted by position on the page. That reads a two-column page straight
 across, line by line; it broke the text of 1,972 of 3,327 pages. That text, and everything extracted with the old
 scripts, was removed on 28 September 2026; nothing of it is kept.

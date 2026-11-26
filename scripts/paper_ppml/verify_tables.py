@@ -6,7 +6,7 @@ sheets with the definitions the paper states (Section IV-B for the focus angles,
 Section VIII, the quality questionnaire of Section II-E), then compared cell by cell with the built table. Any
 difference is printed; nothing is changed.
 
-Usage: python3 scripts/paper_ppml/verify_tables.py
+Usage: python3 scripts/paper_ppml/verify_tables.py [<version>]   (with a version: only the tables and figures its parts place)
 """
 import collections
 import csv
@@ -134,12 +134,10 @@ def ledger_checks(k):
     roles = set(vals(k, 'P3', 'roles'))
     if 'update-verification' in roles and k not in NOT_CONTENT and what_checked(k) == 'content':
         return True
-    return 'proof-verification' in roles and ZK_RELATION.get(k) in ('bound', 'training') \
-        and one(k, 'P4', 'zk_on_chain') == 'yes'
+    return 'proof-verification' in roles and ZK_RELATION.get(k) in ('bound', 'training')   # the role is the on-ledger record (V89)
 
 
-ledger_checks_agg = lambda k: (not ledger_checks(k) and 'proof-verification' in vals(k, 'P3', 'roles') and ZK_RELATION.get(k) == 'aggregation'
-                               and one(k, 'P4', 'zk_on_chain') == 'yes')
+ledger_checks_agg = lambda k: (not ledger_checks(k) and 'proof-verification' in vals(k, 'P3', 'roles') and ZK_RELATION.get(k) == 'aggregation')
 ledger_other = lambda k: (not ledger_checks(k) and not ledger_checks_agg(k)
                           and bool(set(vals(k, 'P3', 'roles')) & {'proof-verification', 'update-verification'}))
 
@@ -172,13 +170,10 @@ BY_ZK = {'training': 'correct-training', 'bounded': 'norm-bound', 'aggregation':
 
 
 def verification(k):
-    """checks the content of updates, the training or the aggregation by means other than a ZKP (Section II-A); the
-    explicit value verification_other_means, where a sheet records one, decides; a check that no party runs never counts"""
+    """checks the content of updates, the training or the aggregation by means other than a ZKP (Section II-A); a check
+    that no party runs never counts (the merged records of 15 October 2026 carry no explicit override; V89)"""
     if what_checked(k) not in ('content', 'aggregation'):
         return False
-    v = one(k, 'P4', 'verification_other_means')
-    if isinstance(v, bool):
-        return v
     checks = set(vals(k, 'P4', 'checked')) & CONTENT_CHECKS
     if one(k, 'P4', 'zk_used') is True:
         checks -= {BY_ZK[x.split(':')[0].strip()] for x in vals(k, 'P4', 'zk_shows') if x.split(':')[0].strip() in BY_ZK}
@@ -237,7 +232,7 @@ def check_zk():
         ids = [k for k in users if ZK_RELATION.get(k) == rel]
         seen |= set(ids)
         studies_row('zk', r[0], r[1], ids)
-        report('zk', f'{r[0]} verified on the ledger', int(r[2].split()[0]), sum(one(k, 'P4', 'zk_on_chain') == 'yes' for k in ids))
+        report('zk', f'{r[0]} verified on the ledger', int(r[2].split()[0]), sum('proof-verification' in vals(k, 'P3', 'roles') for k in ids))
         hid = [k for k in ids if one(k, 'P4', 'checker_sees_update') == 'no']
         if hid or r[3] != '–':
             studies_row('zk', f'{r[0]} no checking party sees', r[3], hid)
@@ -319,20 +314,22 @@ KIND_OF = {'HE': 'Confidentiality of the update', 'secret-sharing': 'Confidentia
 
 
 def check_privacy():
+    """Table VI since V91: Mechanism | Kind of protection | Designs using it | Of these, update concealed from the aggregator | What the aggregator cannot observe"""
     head, rows = table('privacy')
+    report('privacy', 'columns', head[:4], ['Mechanism', 'Kind of protection', 'Designs using it', 'Of these, update concealed from the aggregator'])
     listed = set()
     for r in rows:
-        tag = MECH[r[1]]
+        tag = MECH[r[0]]
         listed.add(tag)
-        report('privacy', f'{r[1]} kind', r[0], KIND_OF[tag])
+        report('privacy', f'{r[0]} kind', r[1], KIND_OF[tag])
         want = [k for k in PRIM if tag in used_mech(k)]
-        studies_row('privacy', r[1], r[2], want)
-        if r[0] == 'Confidentiality of the update':
-            report('privacy', f'{r[1]} hidden from the aggregator', int(re.search(r'in (\d+) of these', r[3]).group(1)),
-                   sum(kept_from_aggregator(k) == 'hidden' for k in want))
-        if r[0] == 'Output privacy':
-            report('privacy', f'{r[1]} noise only', int(re.search(r'in (\d+) designs', r[3]).group(1)),
-                   sum(kept_from_aggregator(k) == 'noised' for k in want))
+        studies_row('privacy', r[0], r[2], want)
+        if r[1] == 'Confidentiality of the update':
+            report('privacy', f'{r[0]} concealed from the aggregator', int(r[3]), sum(kept_from_aggregator(k) == 'hidden' for k in want))
+        else:
+            report('privacy', f'{r[0]} concealed column', r[3], '–')
+        if r[1] == 'Output privacy':
+            report('privacy', f'{r[0]} noise only', int(re.search(r'in (\d+)', r[4]).group(1)), sum(kept_from_aggregator(k) == 'noised' for k in want))
     report('privacy', 'every mechanism used has a row', listed, {m for k in PRIM for m in used_mech(k) if m in KIND_OF})
 
 
@@ -387,17 +384,32 @@ THREAT = {'Poisoning': 'poisoning', 'Backdoor': 'backdoor', 'Byzantine or malici
           'Byzantine validators or committee members (consensus)': 'byzantine-consensus'}
 
 
+OUTSIDE = {'single-point-of-failure', 'tampering', 'byzantine-consensus'}      # V95: in the supporting document's table only
+
+
 def check_threats():
-    head, rows = table('threats')
-    for r in rows:
-        tag = THREAT[r[0]]
-        cl = [k for k in PRIM if tag in threats(k, 'claimed')]
-        te = [k for k in cl if tag in threats(k, 'tested')]
-        studies_row('threats', f'{r[0]} claimed', r[1], cl)
-        main, _, nd = r[2].partition(' (attack not described:')
-        if te or main not in ('0', '–'):
-            studies_row('threats', f'{r[0]} tested', main, te)
-        report('threats', f'{r[0]} attack not described', set(re.findall(r'@([\w-]+)', nd)), {k for k in te if tag in NOT_DESCRIBED.get(k, set())})
+    """the paper's table (V95: the threats of the questions and the privacy threats; a dagger on a study whose attack is not
+    described) and the supporting document's table of every threat recorded (the attack not described in brackets)"""
+    for key in ('threats', 'threats_full'):
+        if not (T / f'{key}.md').exists():
+            continue
+        head, rows = table(key)
+        seen = set()
+        for r in rows:
+            tag = THREAT[r[0]]; seen.add(tag)
+            cl = [k for k in PRIM if tag in threats(k, 'claimed')]
+            te = [k for k in cl if tag in threats(k, 'tested')]
+            studies_row(key, f'{r[0]} claimed', r[1], cl)
+            if key == 'threats_full':
+                main, _, nd = r[2].partition(' (attack not described:')
+                nd_keys = set(re.findall(r'@([\w-]+)', nd))
+            else:
+                main, nd_keys = r[2], set(re.findall(r'@([\w-]+)\]†', r[2]))
+            if te or main not in ('0', '–', '0 –'):
+                studies_row(key, f'{r[0]} tested', main, te)
+            report(key, f'{r[0]} attack not described', nd_keys, {k for k in te if tag in NOT_DESCRIBED.get(k, set())})
+        want = {THREAT[n] for n in THREAT if any(THREAT[n] in threats(k, 'claimed') for k in PRIM)}
+        report(key, 'threats listed', seen, want - OUTSIDE if key == 'threats' else want)
 
 
 # ---- Table: checks (what is checked against whether the party that checks sees the update) ----------------------------
@@ -512,26 +524,6 @@ def check_qa():
         for i, w in enumerate(want):
             report('qa_primary', f'{k} QA{i + 1}', r[1 + i], G[w])
     report('qa_primary', 'studies listed', got, set(PRIM))
-    head, rows = table('qa_secondary')
-    part = re.compile(r'\bonly\b|approx|≈|\bFig\.|figure', re.I)
-    got = set()
-    for r in rows:
-        k = cell(r[0])[1].pop()
-        got.add(k)
-        per = str(one(k, 'S1', 'period') or '')
-        q1 = (0.5 if part.search(per) else 1) if vals(k, 'S1', 'databases') else 0
-        q2 = 0 if (not per or per.lower().startswith('not stated')) else (0.5 if part.search(per) or 'not stated' in per.lower() else 1)
-        n = one(k, 'S1', 'studies')
-        n = 'not stated' if n in (None, '') else n
-        q3 = 1 if isinstance(n, int) or str(n).isdigit() else (0 if not re.search(r'\d', str(n)) else (0.5 if part.search(str(n)) else (1 if re.match(r'\d[\d,]*\b', str(n)) else 0.5)))
-        lim = one(k, 'S8', 'own_limitations')
-        q4 = {'yes': 1, 'partial': 0.5, 'no': 0}.get(lim, None)
-        if q4 is None:
-            q4 = 0 if str(SH[k]['answers'].get('S8', {}).get('answer', '')).lower().startswith(('not stated', 'no limitation')) else 1
-        want = [q1, q2, q3, q4]
-        for i, w in enumerate(want):
-            report('qa_secondary', f'{k} QS{i + 1}', r[1 + i], G[w])
-    report('qa_secondary', 'surveys listed', got, set(SEC))
 
 
 # ---- Figures with saved data (build/figures/<name>.data.json) -------------------------------------------------------
@@ -576,18 +568,20 @@ def check_fig_trends():
 
 
 def check_fig_survey_coverage():
+    """Fig. 2 (V91 columns): the seven subjects of Table I, from the surveys' S1 records"""
     d = fig('survey_coverage')
     refs = json.loads((ROOT / 'myliteraturereviewpaper' / 'ppml2026' / 'refs.json').read_text(encoding='utf-8'))
     name = {f"{refs.get(k, {}).get('first_author_surname', k)} {YEAR[k]}": k for k in SEC}
-    cols = list(SURVEY_COLS.values())
-    report('Fig survey_coverage', 'columns', d['columns'], [h.split(' ', 1)[1] for h in SURVEY_COLS])
+    cols = [('NG-IoT fabric', 'fabric'), ('Privacy mechanisms', 'privacy'), ('Blockchain and checking', 'trust'), ('Data-protection law', 'regulation'),
+            ('Poisoning', 'poisoning'), ('Malicious or fake', 'malicious_fake'), ('Free riding', 'free_riding')]
+    report('Fig survey_coverage', 'columns', d['columns'], [c for c, _ in cols])
     report('Fig survey_coverage', 'surveys shown', len(d['rows']), len(SEC))
     for lab, marks in d['rows']:
         k = name.get(lab)
         if k is None:
             PROBLEMS.append(f'Fig survey_coverage · unknown row {lab!r}')
             continue
-        report('Fig survey_coverage', lab, marks, [MARK[one(k, q, f) or 'absent'] for q, f in cols])
+        report('Fig survey_coverage', lab, marks, [MARK[one(k, 'S1', f) or 'absent'] for _, f in cols])
 
 
 # ---- Numbers drawn in the diagrams (taxonomy, architecture, spine) from build/stats.json -------------------------------
@@ -648,8 +642,6 @@ def expected(key):
     if key == 'mech_two_or_more':          # FL's own data locality and pseudonyms are not counted as privacy mechanisms
         return sum(len({m for m in vals(k, 'P2', 'mechanisms') if m not in ('encryption-in-transit-only', 'pseudonyms-anonymity')
                         and not (m.startswith('other:') and re.search(r'data locality|instead of raw data|abstract only|named only', m, re.I))}) >= 2 for k in P)
-    if key == 'sec_edpb':
-        return sum(one(k, 'S5', 'edpb') is True for k in SEC)
     if pre == 'claimed':
         return sum(tag() in vals(k, 'P5', 'claimed') for k in P)
     if pre == 'tested':                    # tested among those that claim it
@@ -756,26 +748,194 @@ def check_prim_cover():
 
 
 def check_fig_prim_coverage():
+    """Fig. 6 (three conditions since V85): Yes by the conditions recomputed here; Partial by the rules Section VI-B states"""
     d = fig('prim_coverage')
     refs = json.loads((ROOT / 'myliteraturereviewpaper' / 'ppml2026' / 'refs.json').read_text(encoding='utf-8'))
     base = {k: f"{refs.get(k, {}).get('first_author_surname', k)} {YEAR[k]}" for k in PRIM}
     twice = {v for v in base.values() if list(base.values()).count(v) > 1}
-    name = {(base[k] if base[k] not in twice else f"{re.split(r',| and | et al\.', refs[k]['ieee'])[0].strip()} {YEAR[k]}"): k for k in PRIM}
-    report('Fig prim_coverage', 'columns', d['columns'], [h.split(' ', 1)[1] for h in PRIM_HEADS])
-    report('Fig prim_coverage', 'distinct labels', len(name), len(PRIM))
+    name = {(base[k] if base[k] not in twice else f"{base[k]} ({k})"): k for k in PRIM}
+    report('Fig prim_coverage', 'columns', d['columns'], ['C1 Cost on devices', 'C2 No party sees an update', 'C3 Attack test reported'])
     report('Fig prim_coverage', 'studies shown', len(d['rows']), len(PRIM))
+    GR = {}
     for lab, marks in d['rows']:
         k = name.get(lab)
         if k is None:
             PROBLEMS.append(f'Fig prim_coverage · unknown row {lab!r}')
             continue
-        report('Fig prim_coverage', lab, marks, [('Yes' if g.startswith('Yes') else g) for g in prim_grades(k)])
+        c = conditions(k); cl = threats(k, 'claimed')
+        want = ['Yes' if c[0] else ('Partial' if one(k, 'P1', 'network_measured') == 'yes' or one(k, 'P1', 'cost_where') == 'server-workstation' else 'No'),
+                'Yes' if c[1] else ('Partial' if kept_from_aggregator(k) in ('hidden', 'noised') else 'No'),
+                'Yes' if (c[3] or c[4] or c[5]) else ('Partial' if cl & LEARNING else 'No')]
+        report('Fig prim_coverage', lab, marks, want)
+        GR[k] = want
+    if GR:
+        met = [sum(g == 'Yes' for g in v) for v in GR.values()]
+        yes = [sum(v[i] == 'Yes' for v in GR.values()) for i in range(3)]
+        report('Fig prim_coverage', 'count line', d.get('footer'),
+               f'Designs graded Yes: C1 {yes[0]}, C2 {yes[1]}, C3 {yes[2]}; all three {met.count(3)}, two of the three {met.count(2)}')
+
+
+def check_years_v68():
+    """Table IV and Fig. 5: the studies per year, the designs of each year that test a named attack and those with a cost on device-class hardware"""
+    head, rows = table('years_v68')
+    report('years_v68', 'columns', head, ['Year', 'Designs', 'Surveys', 'Designs with a test of a named attack', 'Designs with a cost on device-class hardware'])
+    for r in rows:
+        y = int(r[0]); ks = [k for k in PRIM if YEAR[k] == y]
+        want = [sum(1 for k in PRIM if YEAR[k] == y), sum(1 for k in SEC if YEAR[k] == y),
+                sum(1 for k in ks if any(conditions(k)[3:6])), sum(1 for k in ks if conditions(k)[0])]
+        report('years_v68', str(y), [int(x) for x in r[1:]], want)
+    d = fig('years'); ys = [str(y) for y in range(2020, 2027)]
+    report('Fig years', 'categories', d['categories'], ys)
+    want = {'Designs': lambda k, y: k in PRIM and YEAR[k] == y, 'Surveys': lambda k, y: k in SEC and YEAR[k] == y,
+            'Designs testing a named attack': lambda k, y: k in PRIM and YEAR[k] == y and any(conditions(k)[3:6]),
+            'Designs measuring a cost on device-class hardware': lambda k, y: k in PRIM and YEAR[k] == y and conditions(k)[0]}
+    report('Fig years', 'series', [n for n, _, _ in d['series']], list(want))
+    for name, col, vals_ in d['series']:
+        report('Fig years', name, [int(v) for v in vals_], [sum(1 for k in SH if want[name](k, int(y))) for y in ys])
+
+
+def check_chars():
+    """Table III: every cell of every design's row is the record's tags (printed by thematic.TAG_LABEL, a presentation map)"""
+    LAB, EN = _D.TAG_LABEL, _D.ENABLER_SHORT
+    def lab(xs, names=LAB):
+        out = []
+        for x in xs:
+            l = 'other' if str(x).startswith('other') else names.get(x, x)
+            if l not in out: out.append(l)
+        return ', '.join(out) or '–'
+    def bare(c):                                                    # V95: "other" beside a named tag says nothing
+        xs = c.split(', ')
+        return ', '.join(x for x in xs if x != 'other') if any(x != 'other' for x in xs) else c
+    for key in ('chars_primary', 'chars_primary_full'):
+        if not (T / f'{key}.md').exists():
+            continue
+        head, rows = table(key)
+        seen = set()
+        for r in rows:
+            k = next(iter(cell(r[0])[1])); seen.add(k)
+            want = [str(YEAR[k]), lab(vals(k, 'P1', 'settings')), ', '.join(EN.get(x, x) for x in vals(k, 'P1', 'enablers')) or '–',
+                    lab(sorted(used_mech(k), key=lambda m: vals(k, 'P2', 'mechanisms').index(m))), lab(vals(k, 'P3', 'ledger')), lab(vals(k, 'P4', 'checked')), lab(vals(k, 'P5', 'tested'))]
+            if key == 'chars_primary':
+                want = want[:2] + [bare(c) for c in want[3:]]
+            report(key, k, r[1:], want)
+        report(key, 'columns', head, ['Study', 'Year', 'Setting', 'Privacy', 'Ledger', 'Checked', 'Attacks tested'] if key == 'chars_primary'
+               else ['Study', 'Year', 'Setting', 'Enabler', 'Privacy', 'Ledger', 'Checked', 'Attacks tested'])
+        report(key, 'designs listed', seen, set(PRIM))
+
+
+def check_experiment():
+    """Table XIII and Figs. 8 and 9 against the run records of the first experiment (experiments/)"""
+    ATT = ROOT / 'experiments' / 'fl-bc-ids-attacks' / 'runs'; SWEEP = ROOT / 'experiments' / 'fl-bc-ids' / 'runs' / 'SWEEP-CICIOV2024.csv'
+    pct = lambda x: f'{100 * float(x):.0f}%' if x not in ('', None) else '–'
+    by = {}
+    for r in csv.DictReader(open(ATT / 'ATTACKS-CICIOV2024.csv', encoding='utf-8')):
+        by.setdefault((r['attack'], r['param'] or ''), {})[r['run_tag']] = r
+    order = [('none', ''), ('foolsgold', '1'), ('foolsgold', '5'), ('severi', '0.01'), ('severi', '0.04')]
+    for tkey in ('experiment_attacks', 'experiment_attacks_full'):
+        if not (T / f'{tkey}.md').exists():
+            continue
+        head, rows = table(tkey)
+        report(tkey, 'rows', len(rows), len(order))
+        full = tkey.endswith('_full')                                   # V95: the paper's table has no Attackers or Admitted column
+        for r, key in zip(rows, order):
+            r1, r2 = by[key].get('r1', {}), by[key].get('r2', {})
+            if full:
+                want_adm = 'all, 5 of 5' if all(x.get('excluded', '0') == '0' and x.get('proofs_verified') == '5' for x in (r1, r2) if x) else 'see records'
+                report(tkey, f'{key} admitted', r[2], want_adm)
+                rest = r[3:]
+            else:
+                report(tkey, f'{key} every attacker admitted, five proofs verified (said in the text)',
+                       all(x.get('excluded', '0') == '0' and x.get('proofs_verified') == '5' for x in (r1, r2) if x), True)
+                n = int(r1.get('attackers') or 0)
+                report(tkey, f'{key} attackers in the cell', bool(re.search(rf'\b{n // 2}\b', r[0])) if n else r[0].startswith('None'), True)
+                rest = r[1:]
+            report(tkey, f'{key} attack flows passed', rest[0], f"{pct(r1.get('fg_target_attack_rate'))} / {pct(r2.get('fg_target_attack_rate'))}")
+            report(tkey, f'{key} backdoor', rest[1], (f"{pct(r1.get('severi_success_vs_clean_fl'))} / {pct(r2.get('severi_success_vs_clean_fl'))}" if key[0] == 'severi' else '–'))
+            report(tkey, f'{key} probe', rest[2], (f"{r1.get('aq_attackers_below_honest_recall') or '–'} / {r2.get('aq_attackers_below_honest_recall') or '–'}" if key[0] != 'none' else '–'))
+    sw = fig('sweep'); src = sorted(csv.DictReader(open(SWEEP, encoding='utf-8')), key=lambda r: int(r['vehicles']))
+    report('Fig sweep', 'x', sw['x'], [r['vehicles'] for r in src]); report('Fig sweep', 'accuracy', sw['accuracy'], [r['ens_acc'] for r in src]); report('Fig sweep', 'f1', sw['f1'], [r['ens_f1'] for r in src])
+    an = fig('anchorcheck')
+    for pnl in an['panels']:
+        e = json.loads((ATT / pnl['run'] / 'attack_eval.json').read_text(encoding='utf-8')); aq = e['anchor_quality_check']; att = set(e['attackers'])
+        want = sorted([int(v), d['attack_recall'], int(v) in att] for v, d in aq['per_vehicle'].items())
+        report('Fig anchorcheck', pnl['title'], [list(x) for x in pnl['vehicles']], want)
+        report('Fig anchorcheck', pnl['title'] + ' honest min', pnl['honest_min'], aq['honest']['attack_recall_min'])
+
+
+
+# ---- the result charts (V95): each count recounted from the sheets with the definitions the tables state ---------------
+SHORT_MECH = {'HE': 'HE', 'Secret sharing': 'secret-sharing', 'SMPC': 'SMPC', 'Masking and secure aggregation': 'masking-secure-aggregation',
+              'TEE': 'TEE', 'Functional encryption': 'functional-encryption', 'DP': 'DP', 'LDP': 'LDP', 'Pseudonyms and anonymity': 'pseudonyms-anonymity',
+              'ZKPs': 'ZKP', 'Encryption in transit only': 'encryption-in-transit-only'}
+HOLD = {'Identities and keys': 'identities-keys', 'Protected updates': 'protected-updates', 'Reputation scores': 'reputation-scores',
+        'Rewards and payments': 'rewards-payments', 'Plaintext updates': 'plain-updates', 'Logs and metadata': 'logs-metadata',
+        'Hashes and commitments': 'hashes-commitments', 'The global model': 'global-model', 'Proofs': 'proofs'}
+TRUSTED = {'The server, aggregator or task publisher': 'server-aggregator', 'A trusted authority or key centre': 'trusted-authority-key-centre',
+           'An enclave': 'enclave-TEE', 'An honest majority of a committee or of the nodes': 'committee-honest-majority',
+           'A certificate authority': 'certificate-authority', 'A trusted set-up': 'trusted-setup', 'Non-colluding servers': 'non-colluding-servers',
+           'No party': 'none', 'Not stated': 'not-stated'}
+SEES_V = {'Sees the update in full': 'yes', 'In part or with noise added': 'partly', 'Not at all': 'no', 'Unclear': 'unclear',
+          'No checker of updates': 'no-check'}
+
+
+def check_fig_results():
+    """Figs. of SQ1, SQ2 and SQ3 (V95): every bar against the sheets; and every category a design falls under is drawn"""
+    d = fig('sq1_costs')
+    WHERE = {'On device-class hardware': 'device-class', 'On servers or workstations': 'server-workstation', 'In simulation': 'simulation',
+             'Where not stated': 'not-stated'}
+    ENVS = {'Real devices or a test bed': 'real-devices', 'Emulation': 'emulation', 'Simulation': 'simulation',
+            'An experiment on data sets on servers': 'server-experiment', 'No experiment': 'none', 'Not stated': 'not-stated'}
+    scale = {k: one(k, 'P3', 'scale') for k in PRIM}
+    num = lambda v: isinstance(v, int) and not isinstance(v, bool)
+    SCALE = {'Up to 10': lambda n: num(n) and n <= 10, '11 to 100': lambda n: num(n) and 11 <= n <= 100,
+             '101 to 1,000': lambda n: num(n) and 101 <= n <= 1000, 'Over 1,000': lambda n: num(n) and n > 1000, 'Not stated': lambda n: not num(n)}
+    exp = [{l: sum(1 for k in PRIM if one(k, 'P1', 'cost_where') == v) for l, v in WHERE.items()},
+           {l: sum(1 for k in PRIM if v in vals(k, 'P3', 'environment')) for l, v in ENVS.items()},
+           {l: sum(1 for k in PRIM if f(scale[k])) for l, f in SCALE.items()}]
+    for pnl, want in zip(d['panels'], exp):
+        got = dict(zip(pnl['categories'], pnl['series'][0][2]))
+        report('Fig sq1_costs', pnl['title'], got, {l: n for l, n in want.items() if n})
+    report('Fig sq1_costs', 'scale (a), (c) sum to the designs', [sum(p['series'][0][2]) for p in (d['panels'][0], d['panels'][2])], [len(PRIM)] * 2)
+    d = fig('sq2_privacy'); a, b, c = d['panels']
+    want = {}
+    for lab_, tag in SHORT_MECH.items():
+        ids = [k for k in PRIM if tag in used_mech(k)]
+        if ids:
+            want[lab_] = (len(ids), sum(1 for k in ids if kept_from_aggregator(k) == 'hidden') if tag in CONFID else None)
+    report('Fig sq2_privacy', '(a) used, concealed', dict(zip(a['categories'], zip(a['series'][0][2], a['series'][1][2]))), want)
+    want = {l: sum(1 for k in PRIM if t in vals(k, 'P3', 'on_chain')) for l, t in HOLD.items()}
+    report('Fig sq2_privacy', '(b) held', dict(zip(b['categories'], b['series'][0][2])), {l: n for l, n in want.items() if n})
+    report('Fig sq2_privacy', '(b) bands', dict(zip(b['categories'], b['bands'])), {l: BAND.get(HOLD[l], 'B') for l in b['categories']})
+    want = {l: sum(1 for k in PRIM if t in vals(k, 'P2', 'trusted')) for l, t in TRUSTED.items()}
+    report('Fig sq2_privacy', '(c) trusted', dict(zip(c['categories'], c['series'][0][2])), {l: n for l, n in want.items() if n})
+    d = fig('sq3_checks')
+    for name, _, vs in d['series']:
+        v = SEES_V[name]
+        report('Fig sq3_checks', name, dict(zip(d['categories'], vs)),
+               {lab_: sum(1 for k in PRIM if what_checked(k) == CLASS[lab_] and one(k, 'P4', 'checker_sees_update') == v) for lab_ in d['categories']})
+    report('Fig sq3_checks', 'every design once', sum(sum(vs) for _, _, vs in d['series']), len(PRIM))
+
+
+def placed(version):
+    """the tables and figures the parts of a version place ({{TAB:x}}, {{FIG:x}})"""
+    parts = ROOT / 'myliteraturereviewpaper' / 'ppml2026' / f'parts-v{version}'
+    txt = '\n'.join(p.read_text(encoding='utf-8') for p in parts.glob('*.md'))
+    import build_supporting                                          # V95: the supporting document's tables are published too
+    return (set(re.findall(r'\{\{TAB:(\w+)\}\}', txt)) | {key for _, key, _ in build_supporting.SECTIONS},
+            set(re.findall(r'\{\{FIG:(\w+)\}\}', txt)))
 
 
 if __name__ == '__main__':
-    for f in (check_years, check_angles, check_zk, check_surveys, check_fabric, check_privacy, check_ledger, check_threats,
+    import inspect
+    version = int(sys.argv[1]) if len(sys.argv) > 1 else None
+    tabs, figs = placed(version) if version else (None, None)
+    for f in (check_years, check_years_v68, check_angles, check_zk, check_surveys, check_fabric, check_chars, check_privacy, check_ledger, check_threats,
               check_checks, check_gap, check_qa, check_fig_threats, check_fig_trends, check_fig_survey_coverage, check_fig_numbers,
-              check_prim_cover, check_fig_prim_coverage):
+              check_prim_cover, check_fig_prim_coverage, check_experiment, check_fig_results):
+        src = inspect.getsource(f)
+        uses_t, uses_f = set(re.findall(r"table\('(\w+)'\)", src)), set(re.findall(r"fig\('(\w+)'\)", src))
+        if version and (uses_t or uses_f) and not (uses_t & tabs or uses_f & figs):
+            print(f"{f.__name__[6:]:12} skipped (not placed in V{version})"); continue
         before = len(PROBLEMS)
         try:
             f()
@@ -785,3 +945,4 @@ if __name__ == '__main__':
     print(f'\n{len(PROBLEMS)} difference(s)')
     for p in PROBLEMS:
         print('  ', p)
+    raise SystemExit(1 if PROBLEMS else 0)

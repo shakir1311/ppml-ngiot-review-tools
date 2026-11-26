@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+"""Records, for each new design, whether its paper declares the code we hold, and writes the summary table design-evaluation/new-designs/CODE-DECLARATIONS.md.
+
+Sources: the readers' evidence/paper-code-declaration.json (Z01, Z02, Z04, Z06-Z09), and for Z03 and Z05 the reviewer's reading
+of the link scan (evidence/paper-links.json) with the checks made on 16 November 2026, kept here in REVIEWER: the GitHub account
+of Z03 was renamed (NikolasHaimerl redirects to HaimerlNikolas); Z05's declared repository (jvhs0706/zkdl-train) and the lab's
+licensed copy (SafeAILab/zkDL) share 11 file names and none of the 11 has the same content (GitHub blob hashes); Z07's Figshare
+artifact is byte-identical, file by file, to the cloned GitHub repository. The publishers' pages of Z02 (Springer) and Z08
+(Frontiers) list no supplementary files. Each design's evidence/code-declaration-summary.json holds the outcome.
+
+Usage: design-evaluation/.venv/bin/python scripts/design_eval/code_declarations.py
+"""
+import json, pathlib, sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from common import EVAL, save_json, now   # noqa: E402
+
+BASE = EVAL / 'new-designs'
+REVIEWER = {
+    'Z03': {'verdict': 'declares the cloned repository', 'declared': 'https://github.com/NikolasHaimerl/Advancing-Blockchain-Based-Federated-Learning-Through-Verifiable-Off-Chain-Computations (page 4)',
+            'held': 'not cloned: no licence', 'match': 'same repository: the account was renamed (NikolasHaimerl redirects to HaimerlNikolas)',
+            'supplementary': 'none mentioned', 'usable': 'no: no licence (ask the authors)'},
+    'Z05': {'verdict': 'declares another repository', 'declared': 'https://github.com/jvhs0706/zkdl-train (page 11), the first author\'s repository; no licence',
+            'held': 'SafeAILab/zkDL (BSD-2-Clause), the lab\'s repository',
+            'match': 'different code: 11 file names in common, none with the same content; the declared repository adds two CUDA headers, the lab\'s adds a demo, a README and further sources',
+            'supplementary': 'mentioned on pages 1, 7, 8, 10 (not read; the code link is in the paper itself)',
+            'usable': 'the declared code has no licence (ask the first author); the lab\'s licensed code is another version, not proven to give the paper\'s results'},
+}
+SUMMARY = {
+    'Z01': ('declares the cloned repository', 'page 1 (abstract)', 'yes (MIT)'),
+    'Z02': ('declares no code', 'no link, no statement, no supplement (publisher page lists none)', 'yes (MIT), on the co-author\'s word in the repository'),
+    'Z04': ('declares the cloned repository and a second one of its own', 'page 2: rofl-project-code (the prototype) and fl-analysis (the robustness analysis); both cloned', 'yes (MIT stated in README; fl-analysis MIT)'),
+    'Z06': ('declares the cloned repository', 'pages 10-11', 'yes (MIT)'),
+    'Z07': ('declares its Figshare artifact, which is the cloned repository', 'pages 14 and 19: DOI 10.6084/m9.figshare.33411562 (MIT); all 26 files byte-identical to the GitHub clone; also kept in code/figshare-33411562/', 'yes (MIT)'),
+    'Z08': ('declares no code', 'no link, no statement, no supplement (publisher page lists none)', 'yes (MIT), on the first author\'s word in the repository'),
+    'Z09': ('declares code without a link: to be released after peer review', 'pages 11 and 18; a supplementary code package is cited but not public (the Zenodo record holds only the PDF)', 'yes (MIT), but not confirmed as the promised release'),
+}
+
+
+def main():
+    rows = []
+    for d in sorted((BASE / 'designs').iterdir()):
+        meta = json.load(open(d / 'design.json'))
+        z = meta['id']
+        rd = d / 'evidence' / 'paper-code-declaration.json'
+        if z in REVIEWER:
+            r = REVIEWER[z]
+            out = {'source': 'reviewer, from the link scan and repository checks', **r}
+            row = (r['verdict'], r['declared'], r['usable'])
+        else:
+            reader = json.load(open(rd)) if rd.exists() else {}
+            v, where, usable = SUMMARY[z]
+            out = {'source': 'reader (evidence/paper-code-declaration.json)', 'verdict': v, 'where': where, 'usable': usable,
+                   'reader_verdict': reader.get('verdict'), 'reader_reason': reader.get('reason')}
+            row = (v, where, usable)
+        out['made'] = now()
+        save_json(d / 'evidence' / 'code-declaration-summary.json', out)
+        rows.append((z, meta['name'], *row))
+    L = ['# Does each paper declare the code we hold?', '',
+         'From the papers themselves (link scan of the OCR-verified pages; readers on the passages around code mentions, reporting '
+         'categories and pages only) and from checks on the repositories, 16 November 2026.', '',
+         '| Design | Paper declares | Where, and how it was settled | Code we can use |', '|---|---|---|---|']
+    L += [f'| {z} {n} | {v} | {w} | {u} |' for z, n, v, w, u in rows]
+    L += ['', 'Generated by `scripts/design_eval/code_declarations.py`.', '']
+    (BASE / 'CODE-DECLARATIONS.md').write_text('\n'.join(L))
+    print('\n'.join(L))
+
+
+if __name__ == '__main__':
+    main()

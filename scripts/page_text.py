@@ -89,9 +89,19 @@ def poppler_pages(pdf: Path, page_count: int) -> tuple[list[str] | None, str]:
     chunks = out.split("\f")
     if len(chunks) == page_count + 1 and not chunks[-1].strip():
         chunks = chunks[:-1]
-    if len(chunks) != page_count:
-        return None, f"pdftotext gave {len(chunks)} pages for {page_count}; not used"
-    return chunks, ""
+    if len(chunks) == page_count:
+        return chunks, ""
+    # Some PDFs (e.g. LaTeX with the Elsevier cas class) carry form feeds inside pages, so the whole-file output splits into
+    # more chunks than pages. Read page by page instead; a form feed inside a page is then only a line break.
+    pages = []
+    for n in range(1, page_count + 1):
+        try:
+            one = subprocess.run([exe, "-enc", "UTF-8", "-eol", "unix", "-f", str(n), "-l", str(n), str(pdf), "-"],
+                                 capture_output=True, timeout=300, check=True).stdout.decode("utf-8", errors="replace")
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+            return None, f"pdftotext gave {len(chunks)} pages for {page_count}, and page {n} alone failed: {exc}; not used"
+        pages.append(one.rstrip("\f").replace("\f", "\n"))
+    return pages, f"pdftotext read page by page (the whole file split into {len(chunks)} chunks for {page_count} pages)"
 
 
 def poppler_layout(pdf: Path, dest: Path) -> str:

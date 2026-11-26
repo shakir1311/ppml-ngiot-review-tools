@@ -528,6 +528,9 @@ def main(version, check_only=False):
         problems.append(f'word not for a paper: "{m.group(0)}" …{text[max(0, m.start() - 60):m.start() + 20]}')
     import thematic
     problems.extend(abbreviation_problems(src))
+    import abstract_check as AC                                   # the abstract answers what it asks and keeps every earlier answer (26 Nov 2026)
+    prev_md = B / f'paper-V{int(re.match(r"\d+", str(version)).group(0)) - 1}.md'   # version may carry a suffix (e.g. '86b')
+    problems.extend(AC.problems(AC.abstract_of(src), AC.abstract_of(prev_md.read_text(encoding='utf-8')) if prev_md.exists() else None))
     (B / f'paper-V{version}.md').write_text(src, encoding='utf-8')
     report = {'version': version, 'output': out.name, 'problems': problems, 'tables': tabs, 'figures': figs,
               'citations': order, 'studies': used, 'numbers_available': len(stats), 'words': len(re.findall(r'\w+', re.sub(r'```\{=openxml\}.*?```', lambda m: ' '.join(re.findall(r'<w:t[^>]*>([^<]*)</w:t>', m.group(0))), body, flags=re.S)))}

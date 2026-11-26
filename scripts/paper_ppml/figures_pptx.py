@@ -41,7 +41,7 @@ SLIDE_W, SLIDE_H, TOP, MARGIN = Inches(13.6), Inches(11.5), Inches(0.85), Inches
 SUPP_FIGS, FIGCAP_ALL = [], {}
 FONT = 'Helvetica Neue'
 TABLE_PT = 10                              # body text of the paper's tables (9 pt for tables of seven or more columns)
-CHARTS = {'threats', 'years'}
+CHARTS = {'threats', 'years', 'sq1_costs', 'sq2_privacy', 'sq3_checks'}       # V95: the result charts (a multi-panel chart gives one slide per panel)
 TABLES = {'trends', 'survey_coverage', 'prim_coverage'}
 
 
@@ -335,8 +335,8 @@ def draw(slide, svg, top=None):
 def chart_slide(slide, d, name=None, top=None):
     cd = CategoryChartData()
     cd.categories = d['categories']
-    for name, _, vals in d['series']:
-        cd.add_series(name, vals)
+    for series_name, _, vals in d['series']:                          # not `name`: that is the figure's name, used below
+        cd.add_series(series_name, vals)
     kind = {'column_stacked': XL_CHART_TYPE.COLUMN_STACKED, 'bar_stacked': XL_CHART_TYPE.BAR_STACKED,
             'bar_clustered': XL_CHART_TYPE.BAR_CLUSTERED}[d['kind']]
     gf = slide.shapes.add_chart(kind, MARGIN * 2, (TOP if top is None else top) + Inches(0.1), SLIDE_W - MARGIN * 4, Inches(6.5), cd)
@@ -350,7 +350,7 @@ def chart_slide(slide, d, name=None, top=None):
         s.format.fill.solid()
         s.format.fill.fore_color.rgb = rgb(col)
         if d['kind'] == 'bar_clustered':
-            s.format.line.color.rgb = rgb('#B85450')                 # the red outline of the drawn threats figure
+            s.format.line.color.rgb = rgb(d.get('outline', '#B85450') if name == 'threats' or 'outline' in d else col)   # the threats figure's red outline; else the series colour
     pl = ch.plots[0]
     pl.gap_width = 60
     if d['kind'] == 'bar_clustered':
@@ -669,10 +669,16 @@ def main(version, out_dir=OUT_DIR):
         if name in CHARTS | TABLES:
             label, caption = built.get(name) or (f'Fig. {dict(SUPP_FIGS)[name]}', FIGCAP_ALL[name])
             d = json.loads((FIG / f'{name}.data.json').read_text(encoding='utf-8'))
-            s = prs.slides.add_slide(blank)
             sub = ('A native PowerPoint chart: right-click > Edit Data to change the numbers.' if name in CHARTS
                    else 'A table: each cell keeps the colour of the figure (darker: more studies).' if name == 'trends'
                    else 'A table: each cell gives the grade in the colour of the figure; the columns are grouped as in the figure.')
+            if d.get('kind') == 'panels':                                   # one native chart per panel (V95)
+                for pnl in d['panels']:
+                    s = prs.slides.add_slide(blank)
+                    top = caption_box(s, f'{label}, {pnl["title"]}, with its data —', caption, size=12, sub=sub)
+                    chart_slide(s, pnl, name, top)
+                continue
+            s = prs.slides.add_slide(blank)
             top = caption_box(s, f'{label} with its data —', caption, size=12, sub=sub)
             (chart_slide if name in CHARTS else table_slide)(s, d, name, top)
     prs.save(out)

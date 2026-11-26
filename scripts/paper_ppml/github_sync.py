@@ -9,7 +9,7 @@ again (used once, when the records were taken out). Creates the public repositor
 
 Usage: python3 scripts/paper_ppml/github_sync.py <paper version> [--fresh]
 """
-import json, pathlib, subprocess, sys
+import json, pathlib, re, subprocess, sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 NAME = 'ppml-ngiot-review-tools'
@@ -34,6 +34,32 @@ APPS = [('Notes Verifier', 'notes-verifier/docs/notes-verifier.png', 'a cited pa
         ('Screening application', 'scripts/search_ppml/docs/screening-app.png', 'title-and-abstract screening of the search records with a cue-word pre-fill, decisions logged', 'scripts/search_ppml/README.md'),
         ('PDF Text Extractor', 'pdf-text-extractor/docs/pdf-text-extractor.png', 'a folder of PDFs to per-page verified text, sections and figures (macOS and Windows)', 'pdf-text-extractor/README.md'),
         ('Experiments portal', 'experiments/portal/docs/portal.png', 'one local page to start, watch and read the experiments', 'experiments/README.md')]
+
+
+THIRD_PARTY = [('zkPET', 'n2721', 'experiments/zkpet/repo', 'https://github.com/CaixiangFan/zkpet', 'MIT'),
+               ('FL-BC-IDS', 'n3378', 'experiments/fl-bc-ids/repo', 'https://github.com/wisamalwashYildiz/FL-BC-IDS', 'MIT'),
+               ('FoolsGold (the Sybil label-flipping protocol)', 'fung2020', 'experiments/fl-bc-ids-attacks/sources/foolsgold', 'https://github.com/DistributedML/FoolsGold', 'MIT'),
+               ('Explanation-guided clean-label backdoor', 'severi2021', 'experiments/fl-bc-ids-attacks/sources/malwarebackdoors', 'https://github.com/ClonedOne/MalwareBackdoors', 'MIT'),
+               ('CICIoV2024 data set', 'neto2024', None, 'https://www.unb.ca/cic/datasets/iov-dataset-2024.html', 'from its publisher')]
+
+
+def credits():
+    """the papers and repositories the harnesses build on, cited as the paper cites them, with the commits used"""
+    refs = json.loads((ROOT / 'myliteraturereviewpaper' / 'ppml2026' / 'refs.json').read_text(encoding='utf-8'))
+    commits_f = ROOT / 'experiments' / 'COMMITS.json'
+    commits = json.loads(commits_f.read_text(encoding='utf-8')) if commits_f.exists() else {}
+    lines = []
+    for name, key, path, url, lic in THIRD_PARTY:
+        cite = (refs.get(key) or {}).get('ieee', key)
+        cite = re.sub(r'doi:\s*(10\.[^\s,]+?)(\.?)(?=\s|$)', lambda m: f'doi: [{m.group(1)}](https://doi.org/{m.group(1)}){m.group(2)}', cite)   # a DOI as a link
+        commit = f', commit {commits[path]}' if path and path in commits else ''
+        lines.append(f'- **{name}**: {cite} Code: {url} ({lic}{commit}).' if path else f'- **{name}**: {cite} {url} ({lic}).')
+    return ('## Third-party code, models and data\n\n'
+            'None of it is redistributed here; the harnesses clone the repositories at the commits named and the paper cites the works. '
+            'Cite them, not this repository, for what they contributed.\n\n' + '\n'.join(lines) +
+            '\n- **Tabler Icons** (MIT): the icons of the figures, copies and licence in `myliteraturereviewpaper/ppml2026/icons/tabler/`.\n'
+            '- **DeBERTa-v3-large NLI model** by Moritz Laurer (`MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli` on Hugging Face), downloaded by the local checker at set-up; '
+            'see its model card for the licence and the training data.\n\n')
 
 
 def github_readme(version, doi):
@@ -65,7 +91,8 @@ Each folder has a README with the commands. Prerequisites: Python 3.12 or later;
 ## The applications
 
 {gallery}Screenshots were taken by `scripts/review/app_screenshot.py` on the review's real records; where a paper is shown it is Shawkat et al. 2025, published under CC BY 4.0.
-'''
+
+{credits()}'''
 
 
 def main(version):
@@ -76,6 +103,7 @@ def main(version):
     zen_f = ROOT / 'release' / f'ZENODO-V{version}.json'
     zen = json.loads(zen_f.read_text(encoding='utf-8')) if zen_f.exists() else {}
     doi = zen.get('doi')
+    concept = zen.get('concept_doi') or '10.5281/zenodo.23895401'          # V97: the README cites the DOI of all versions, as the paper does
     fresh = '--fresh' in sys.argv
     if fresh and (clone / '.git').exists():
         import shutil
@@ -90,11 +118,12 @@ def main(version):
     for pat in excludes[1:]:                                              # what the sync leaves out is also removed from the clone (openrsync honours no protect filter)
         for hit in clone.glob(pat):
             shutil.rmtree(hit) if hit.is_dir() else hit.unlink()
-    (clone / 'README.md').write_text(github_readme(version, doi), encoding='utf-8')
+    (clone / 'README.md').write_text(github_readme(version, concept), encoding='utf-8')
     (clone / '.gitattributes').write_text('*.png binary\n*.pptx binary\n', encoding='utf-8')
     run(['git', 'add', '-A'], cwd=clone)
     if run(['git', 'status', '--porcelain'], cwd=clone):
-        run(['git', 'commit', '-q', '-m', f'Release v{version}' + (f' (Zenodo DOI {doi})' if doi else '')], cwd=clone)
+        tagged = f'v{version}' in run(['git', 'tag', '--list'], cwd=clone).split()
+        run(['git', 'commit', '-q', '-m', (f'Update v{version}' if tagged else f'Release v{version}') + (f' (Zenodo DOI {doi})' if doi else '')], cwd=clone)
     exists = subprocess.run(['gh', 'repo', 'view', f'{OWNER}/{NAME}'], capture_output=True, text=True).returncode == 0
     if not exists:
         run(['gh', 'repo', 'create', f'{OWNER}/{NAME}', '--public', '--description', DESCRIPTION, '--source', str(clone), '--remote', 'origin', '--push'])

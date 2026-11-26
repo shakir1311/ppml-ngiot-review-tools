@@ -13,8 +13,14 @@ FOLDERS = {
     'scripts/paper_ppml': ('The paper: records to counts, tables, figures, the build and its checks',
                            'Run from the workspace root in this order: `data.py`, `PPML_PARTS_NAME=parts-v<n> data_v68.py`, `experiment_v82.py`, then '
                            '`PPML_PARTS=… PPML_STUDIES=… build.py <n> --check` (or without `--check` to render the Word file), then the checks '
-                           '(`verify_v68.py`, `check_claims_v68.py`, `style_check.py <n>`, `claims_audit.py`), the deck (`figures_pptx.py <n>`), the '
-                           'supporting document, the IEEE Access renderings and `release_package.py <n>`. `Docs/SCRIPTS-MAP.html` maps each script to the part of the paper it serves.'),
+                           '(`verify_v68.py`, `verify_tables.py <n>`, `check_claims_v68.py`, `style_check.py <n>`, `claims_audit.py`, and since 9 November 2026 `terms_check.py <n>`, '
+                           '`fields_check.py`, `check_figures.py <n>`, `abstract_check.py <n>` (also run by build.py) and `stranger_read.py <n>`, whose findings go into the PLAN before delivery), the deck (`figures_pptx.py <n>`), the '
+                           'supporting document, the IEEE Access renderings, `check_rendered.py <n>` on them, `review_response.py <n>` after a review round, `version_changes.py <first> <last>` for a readable record of what changed, `wording_changes.py <n>` for the sentences changed in a version, and `release_package.py <n>`. `Docs/SCRIPTS-MAP.html` maps each script to the part of the paper it serves.'),
+    'scripts/design_eval': ('The design evaluation (Phase 1 of the PhD): code, licence and algorithm of each of the 45 designs',
+                            'Run from the workspace root with `design-evaluation/.venv/bin/python`, in this order: `setup_designs.py`, `scan_paper.py`, '
+                            '`search_code.py` (all designs, one by one), `review_candidates.py <id>` and the verdicts in `code_verdicts.py`, '
+                            '`check_licence.py <id>` for accepted code, `algorithm_triage.py`, `reader_packets.py <id>` and the reader, '
+                            '`verify_reader_quotes.py <id>`, then `status.py` for the READMEs. Every output sits in `design-evaluation/designs/<id>/`.'),
     'scripts/review': ('Shared primitives: the figure drawing, the Word look, the author checks and the Review Viewer',
                        'Imported by the paper scripts (`figures_static.py` draws every SVG figure; `paper_look.py` gives the Word files and the viewer one look; '
                        '`annotate_author_checks.py` writes the copy with the author checks).'),

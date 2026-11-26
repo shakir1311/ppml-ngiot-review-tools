@@ -23,6 +23,25 @@ ENABLER_NAME = {'edge': 'edge computing', '5G-6G': '5G or 6G networks', 'cloud':
                 'fog': 'fog computing', 'none-stated': 'none stated'}
 LAW_WORDS = {'CCPA': 'California Consumer Privacy Act'}          # an abbreviation used once is written out
 ENABLER_SHORT = {'5G-6G': '5G/6G', 'none-stated': 'none stated'}
+TAG_LABEL = {   # the tags of the records as the designs table prints them (V89: a reader saw raw tags such as test-accuracy-quality)
+    'IoT-general': 'general IoT', 'IoV-vehicular': 'IoV', 'IoMT-healthcare': 'IoMT', 'smart-grid-energy': 'smart grid',
+    'smart-city-home': 'smart city or home', 'communication-network': 'communication network', 'UAV-space': 'aerial or space',
+    'supply-chain': 'supply chain', 'secret-sharing': 'secret sharing', 'masking-secure-aggregation': 'masking',
+    'pseudonyms-anonymity': 'pseudonyms', 'encryption-in-transit-only': 'encryption in transit', 'consortium-permissioned': 'consortium or permissioned',
+    'not-stated': 'not stated', 'test-accuracy-quality': 'test accuracy', 'identity-membership': 'identity', 'contribution-reputation': 'reputation',
+    'anomaly-detection': 'anomaly detection', 'similarity-distance': 'similarity', 'correct-aggregation': 'correct aggregation',
+    'correct-training': 'correct training', 'norm-bound': 'norm bound', 'inference-privacy-attack': 'inference', 'byzantine-malicious': 'Byzantine',
+    'sybil-fake': 'Sybil', 'malicious-server-aggregator': 'malicious aggregator', 'free-riding': 'free riding'}
+
+
+def tags_short(xs):
+    """a cell of the designs table: each tag by its label, an 'other: …' value as 'other' (once), nothing as a dash"""
+    out = []
+    for x in xs:
+        lab = 'other' if str(x).startswith('other') else TAG_LABEL.get(x, x)
+        if lab not in out:
+            out.append(lab)
+    return ', '.join(out) or '–'
 LEDGER_WORDS = {'PoW': 'proof of work', 'PoS': 'proof of stake', 'PoA': 'proof of authority',
                 'consortium-permissioned': 'consortium or permissioned', 'not-stated': 'not stated', 'public': 'public', 'private': 'private',
                 'Hyperledger-Fabric': 'Hyperledger Fabric', 'FISCO-BCOS': 'FISCO BCOS', 'logs-metadata': 'logs and metadata',
@@ -65,7 +84,7 @@ ABBREVIATIONS = [    # every abbreviation the review may use: (short form, long 
     # the List of Abbreviations shows only those the built text uses (build.py), and the build checks the rules on them
     ('5G / 6G', 'fifth / sixth generation of mobile networks'), ('AI', 'artificial intelligence'), ('B5G', 'beyond 5G'),
     ('BCFL', 'blockchain-based federated learning'), ('BlockFL', 'blockchained federated learning'),
-    ('C1–C5', 'conditions of the research gap'), ('non-IID', 'non-independent and identically distributed'), ('CBAM', 'Carbon Border Adjustment Mechanism'), ('CSP', 'cloud service provider'),
+    ('C1–C3', 'conditions of the research agenda'), ('non-IID', 'non-independent and identically distributed'), ('CBAM', 'Carbon Border Adjustment Mechanism'), ('CSP', 'cloud service provider'),
     ('DAG', 'directed acyclic graph'), ('DP', 'differential privacy'), ('EC1–EC9', 'exclusion criteria'),
     ('EDPB', 'European Data Protection Board'), ('EU', 'European Union'), ('FedAvg', 'federated averaging'),
     ('FL', 'federated learning'), ('FLchain', 'federated learning combined with blockchain'),
@@ -76,14 +95,14 @@ ABBREVIATIONS = [    # every abbreviation the review may use: (short form, long 
     ('MEC', 'multi-access edge computing'), ('ML', 'machine learning'), ('NG-IoT', 'next-generation Internet of Things'),
     ('PBFT', 'practical Byzantine fault tolerance'), ('PoW', 'proof of work'), ('PPML', 'privacy-preserving machine learning'),
     ('PRISMA', 'Preferred Reporting Items for Systematic Reviews and Meta-Analyses'),
-    ('QA1–QA6', 'quality-appraisal questions for primary studies'), ('QS1–QS4', 'quality-appraisal questions for surveys'),
+    ('QA1–QA6', 'quality-appraisal questions for the designs'), ('QS1–QS4', 'quality-appraisal questions for surveys'),
     ('RFID', 'radio-frequency identification'), ('RQ', 'research question'), ('RSU', 'roadside unit'),
     ('SGX', 'Software Guard Extensions'), ('SMPC', 'secure multi-party computation'), ('SQ', 'survey question'),
     ('SVM', 'support vector machine'), ('TA', 'trusted authority'), ('TEE', 'trusted execution environment'),
     ('UAV', 'unmanned aerial vehicle'), ('ZKP', 'zero-knowledge proof'),
     ('zk-SNARK', 'zero-knowledge succinct non-interactive argument of knowledge')]
 # label families: numbered codes explained where first used (e.g. "inclusion criterion IC3"), listed, not spelled out as "(IC)"
-LABEL_FAMILIES = {'C1–C5': r'C[1-5][a-c]?', 'EC1–EC9': r'EC\d', 'IC1–IC7': r'IC\d', 'QA1–QA6': r'QA\d', 'QS1–QS4': r'QS\d'}
+LABEL_FAMILIES = {'C1–C3': r'C[1-3](?![0-9a-c])', 'EC1–EC9': r'EC\d', 'IC1–IC7': r'IC\d', 'QA1–QA6': r'QA\d', 'QS1–QS4': r'QS\d'}
 
 
 def cites(ids):
@@ -154,7 +173,6 @@ def stats(S, fin):
     s['zk_about_update'] = sum(V(sh, 'P4', 'zk_used') is True and bool(set(L(sh, 'P4', 'zk_shows')) & about) for sh in prim.values())
     s['zk_not_update'] = s['zk_used'] - s['zk_about_update']
     count('zkshows', {k: v for k, v in prim.items() if V(v, 'P4', 'zk_used') is True}, 'P4', 'zk_shows')
-    count('zkonchain', {k: v for k, v in prim.items() if V(v, 'P4', 'zk_used') is True}, 'P4', 'zk_on_chain')
     for t in THREAT_NAME:
         cl = [k for k, sh in prim.items() if t in L(sh, 'P5', 'claimed')]
         s[f'claimed_{slug(t)}'] = len(cl)
@@ -172,11 +190,6 @@ def stats(S, fin):
     s['gdpr_named'] = sum(1 for sh in prim.values() if any('gdpr' in str(x).lower() for x in L(sh, 'P7', 'laws')))
     count('pdchain', prim, 'P7', 'personal_data_on_chain')
     count('erasure', prim, 'P7', 'erasure')
-    s['sec_trust_follows_angles'] = int(all((V(sh, 'S2', 'trust') == 'subject') ==
-                                            ('subject' in (V(sh, 'S4', 'blockchain'), V(sh, 'S4', 'verification'))) for sh in sec.values()))
-    lowq = [qa_secondary(sh) for sh in sec.values() if qa_secondary(sh)[0] < 1]   # surveys that do not fully name their databases
-    s['sec_qs1_below'] = len(lowq)
-    s['sec_no_db_period_count'] = sum(q[0] == 0 and q[1] == 0 and q[2] == 0 for q in lowq)
     for k, _ in LAYER:
         for m in ('subject', 'mentioned', 'absent'):
             s[f'layer_{k}_{m}'] = sum(V(sh, 'S2', k) == m for sh in sec.values())
@@ -186,10 +199,6 @@ def stats(S, fin):
     for k, _ in ANGLE:
         for m in ('subject', 'mentioned', 'absent'):
             s[f'sang_{k}_{m}'] = sum(V(sh, 'S4', k) == m for sh in sec.values())
-    s['sec_edpb'] = sum(V(sh, 'S5', 'edpb') is True for sh in sec.values())
-    s['sec_ai_act'] = sum(V(sh, 'S5', 'ai_act') is True for sh in sec.values())
-    s['sec_gdpr'] = sum(1 for sh in sec.values() if any('gdpr' in str(x).lower() for x in L(sh, 'S5', 'laws')))
-    count('smech', sec, 'S3', 'mechanisms')
     fy = {r['corpus_id']: int(r['year']) for r in fin}
     zk = [k for k, sh in prim.items() if V(sh, 'P4', 'zk_used') is True]
     s['zk_y2025_on'] = sum(fy[k] >= 2025 for k in zk)
@@ -206,7 +215,7 @@ def stats(S, fin):
 # record shows it; absence means that the study does not report it.
 GAP_CONDITIONS = [
     ('C1', 'SQ1', 'a cost of the design measured on device-class hardware'),
-    ('C2', 'SQ2', 'no party that checks or aggregates sees an individual update, in full, in part or noised'),
+    ('C2', 'SQ2', 'no party that checks or aggregates sees an individual update, in full, in part or with noise added'),
     ('C3', 'SQ3', 'the ledger itself checks the updates: its nodes or contracts check their content, or verify a proof about each '
                   'update or its training, by the relation the study states'),
     ('C4', 'SQ4', 'a test of the design by an attack, reported for (a) poisoning, backdoors included, (b) malicious or fake '
@@ -334,10 +343,7 @@ def verification_yes(k, sh):
 
 def verifies_content(sh):
     """the verification angle of Section IV-B (as data.angle_marks): the content of updates, training or aggregation checked by
-    means other than a ZKP; an explicit verification_other_means in the record decides"""
-    v = V(sh, 'P4', 'verification_other_means')
-    if isinstance(v, bool):
-        return v
+    means other than a ZKP (the merged records of 15 October 2026 carry no explicit override; V89)"""
     checks = set(L(sh, 'P4', 'checked')) & CHECKS_OF_LEARNING
     if V(sh, 'P4', 'zk_used') is True:
         checks -= {ZK_COVERS[x] for x in {str(y).split(':')[0].strip() for y in L(sh, 'P4', 'zk_shows')} if x in ZK_COVERS}
@@ -362,8 +368,8 @@ PRIM_COVER_NOTE = ('Columns by layer and focus angle, each labelled by what it g
                    'its three means of checking; SQ4 attacks and defences, Poisoning tested, Malicious or fake tested and Free riding tested; '
                    'SQ5 regulatory layer, No personal records, or erasure. Yes / Partial / No. Cost on devices: a cost of the design measured '
                    'on device-class hardware / measured over a network link only / neither reported. No party sees an update: no party that checks '
-                   'or aggregates sees an individual update, in full, in part or noised / the updates are protected, but the aggregator or a '
-                   'checking party sees them, in part or noised, or the study does not say / the updates are not protected (an update encrypted '
+                   'or aggregates sees an individual update, in full, in part or with noise added / the updates are protected, but the aggregator or a '
+                   'checking party sees them, in part or with noise added, or the study does not say / the updates are not protected (an update encrypted '
                    'under a key that the aggregating party holds is not kept from it). Updates checked (not by ZKP): the content of updates, their '
                    'training or the aggregation checked by means other than a ZKP / identities, signatures, format, the global model or a check '
                    'that no party runs only, or a check by a ZKP / no check. ZKP about the update: a proof of a bound on the update or of its '
@@ -409,7 +415,7 @@ def check_class(k, sh):
     return 'none' if not ch or ch == {'none'} else 'other'
 
 
-SEES_ORDER = [('yes', 'in full'), ('partly', 'in part or noised'), ('no', 'not at all'), ('unclear', 'unclear')]
+SEES_ORDER = [('yes', 'in full'), ('partly', 'in part or with noise added'), ('no', 'not at all'), ('unclear', 'unclear')]
 
 # Byzantine claims that concern the consensus (validators or committee members), not participants of the learning
 BYZ_CONSENSUS = {
@@ -428,6 +434,7 @@ def threats_of(k, sh, field):
 
 
 # Tested threats whose attack the paper does not describe (results reported without an attack set-up)
+OUTSIDE_SQ = {'single-point-of-failure', 'tampering', 'byzantine-consensus'}   # V95: threats outside the study questions; in the supporting document only
 ATTACK_NOT_DESCRIBED = {
     'n2912': {'poisoning', 'byzantine-malicious'},   # P5: "the attack itself is not described and the text gives no malicious share"
     'r0323': {'byzantine-malicious'},                # P5: "The attack the malicious clients run is not described"
@@ -526,19 +533,25 @@ LEDGER_CHECK_NOT_CONTENT = {
 LEDGER_UPDATE_RELATIONS = ('bound', 'training')   # stated relations about each update or its training (II-A: by the relation stated)
 
 
+def zk_on_ledger(sh):
+    """the proof is verified on the ledger: verifying proofs is one of the ledger's roles (tag 'proof-verification'). The merged answers of
+    15 October 2026 carry no zk_on_chain field, so the role is the record of it (V89; before, the missing field read as 'not on the ledger')"""
+    return 'proof-verification' in L(sh, 'P3', 'roles')
+
+
 def ledger_checks_updates(k, sh):
     """C3: the ledger itself checks the updates. Its nodes or contracts check the content of individual updates or their training
     (role 'update-verification' with a content check), or verify on the ledger a proof about each update or its training."""
     roles = set(L(sh, 'P3', 'roles'))
     if 'update-verification' in roles and k not in LEDGER_CHECK_NOT_CONTENT and check_class(k, sh) == 'content':
         return True
-    return 'proof-verification' in roles and ZK_RELATION.get(k) in LEDGER_UPDATE_RELATIONS and V(sh, 'P4', 'zk_on_chain') == 'yes'
+    return 'proof-verification' in roles and ZK_RELATION.get(k) in LEDGER_UPDATE_RELATIONS and zk_on_ledger(sh)
 
 
 def ledger_checks_aggregation(k, sh):
     """the ledger verifies a proof that the aggregation is correct, and does not check the updates (Partial for C3)"""
     return (not ledger_checks_updates(k, sh) and 'proof-verification' in L(sh, 'P3', 'roles') and ZK_RELATION.get(k) == 'aggregation'
-            and V(sh, 'P4', 'zk_on_chain') == 'yes')
+            and zk_on_ledger(sh))
 
 
 def ledger_checks_other(k, sh):
@@ -589,35 +602,16 @@ def qa_primary(k, sh):
     return [q1, q2, q3, q4, q5, q6]
 
 
-def qa_secondary(sh):
-    per = str(V(sh, 'S1', 'period', '') or '')
-    partial = re.compile(r'\bonly\b|approx|≈|\bFig\.|figure', re.I)        # for part of the review only, approximate, or read off a figure
-    q1 = (0.5 if partial.search(per) else 1) if L(sh, 'S1', 'databases') else 0   # databases named for part of the review only (S007) → partial
-    q2 = 0 if (not per or per.lower().startswith('not stated')) else 0.5 if partial.search(per) or 'not stated' in per.lower() else 1
-    n = V(sh, 'S1', 'studies', 'not stated')
-    q3 = 1 if isinstance(n, int) or str(n).isdigit() else 0 if not re.search(r'\d', str(n)) else \
-        0.5 if partial.search(str(n)) else 1 if re.match(r'\d[\d,]*\b', str(n)) else 0.5
-    lim = V(sh, 'S8', 'own_limitations')                   # yes / partial (scope only) / no, judged on the full text
-    q4 = {'yes': 1, 'partial': 0.5, 'no': 0}[lim] if lim in ('yes', 'partial', 'no') else \
-        (0 if str(sh['answers'].get('S8', {}).get('answer', '')).lower().startswith(('not stated', 'no limitation')) else 1)
-    return [q1, q2, q3, q4]
-
-
 def qa_stats(S, fin):
     prim, sec = split(S, fin)
     s = {}
     P = {k: qa_primary(k, sh) for k, sh in prim.items()}
-    Q = {k: qa_secondary(sh) for k, sh in sec.items()}
     tot = {k: sum(v) for k, v in P.items()}
     s['qa_primary_mean'] = round(sum(tot.values()) / max(1, len(tot)), 1)
-    s['qa_secondary_mean'] = round(sum(sum(v) for v in Q.values()) / max(1, len(Q)), 1)
     s['qa_low_n'] = sum(1 for v in tot.values() if v < QA_LOW)
     s['qa_low_threshold'] = QA_LOW
     for i, (code, _) in enumerate(QA_PRIMARY):
         s[f'qa_{code.lower()}_yes'] = sum(1 for v in P.values() if v[i] == 1)
-    for i, (code, _) in enumerate(QA_SECONDARY):
-        s[f'qa_{code.lower()}_yes'] = sum(1 for v in Q.values() if v[i] == 1)
-        s[f'qa_{code.lower()}_partial'] = sum(1 for v in Q.values() if v[i] == 0.5)
     s['qa_cons_no'] = sum(1 for v in P.values() if v[5] == 0)
     s['qa_cons_partial'] = sum(1 for v in P.values() if v[5] == 0.5)
     keep = {k: sh for k, sh in prim.items() if P[k][2] > 0}           # the re-check: studies that run at least one attack they claim (QA3)
@@ -656,10 +650,6 @@ def qa_tables(S, fin, s, md_table):
     md_table('qa_primary', 'Quality-appraisal answers of each design',
              ['Study', 'QA1 Named data sets', 'QA2 Named baselines', 'QA3 Tests of claimed attacks reported', 'QA4 Cost on devices or links reported',
               'QA5 Link to code', 'QA6 Claims and results consistent'], rows, widths=[13, 14, 14, 15, 15, 13, 16])
-    rows = [[f'[@{k}]'] + [f(x) for x in qa_secondary(sh)] for k, sh in sorted(sec.items())]
-    md_table('qa_secondary', 'Quality appraisal of the surveys: the answer to each question of {{TAB:qa_checklist}}.',
-             ['Survey', 'QS1 Databases named', 'QS2 Period stated', 'QS3 Number of studies stated', 'QS4 Own limitations stated'],
-             rows, widths=[16, 21, 21, 21, 21])
     rows = [[f'[@{k}]'] + [prim_cover(k, sh)[c] for c in PRIM_COVER] for k, sh in sorted(prim.items())]
     yes = ['Yes'] + [str(sum(1 for r in rows if r[1 + i].startswith('Yes'))) for i in range(len(PRIM_COVER))]
     # no count column: a count that leaves out some columns of its own table misleads (the author, 13 October 2026); the
@@ -788,16 +778,17 @@ def tables(S, fin, s, md_table):
         checkers = collections.Counter(c2 for k in ids for c2 in dict.fromkeys(map(O, L(prim[k], 'P4', 'checker'))) if c2 not in ('none', 'other'))
         rows.append([name, str(len(ids))] + cells + ['; '.join(f'{CHECKER_NAME.get(c2, c2)} ({n})' for c2, n in checkers.most_common()) or '–'])
     md_table('checks', 'What the designs check, and whether the checker sees the update',
-             ['What is checked', 'Studies', 'Sees it in full', 'In part or noised', 'Not at all', 'Unclear', 'No checker of updates', 'Checked by'], rows,
+             ['What is checked', 'Studies', 'Sees it in full', 'In part or with noise added', 'Not at all', 'Unclear', 'No checker of updates', 'Checked by'], rows,
              widths=[16, 7, 15, 15, 12, 12, 9, 14],
-             note='Each design is counted once, under the strongest thing it checks: the content of individual updates (accuracy, '
+             note='Each design is counted once, under the most it checks: the content of individual updates (accuracy, '
                   'similarity, a norm bound, anomalies, correct training, or an unstated rule) before the aggregation, and the aggregation '
-                  'before identities, signatures, format or contributions. "In part or noised": the checker sees a function of the update '
+                  'before identities, signatures, format or contributions. "In part or with noise added": the checker sees a function of the update '
                   '(such as its norm), part of it, or a version with noise added. A design can have several checkers.')
     for c, _ in CHECK_CLASSES:
         s[f'cc_{c}'] = sum(1 for k, sh in prim.items() if check_class(k, sh) == c)
         for v, _ in SEES_ORDER:
             s[f'cc_{c}_{v}'] = sum(1 for k, sh in prim.items() if check_class(k, sh) == c and V(sh, 'P4', 'checker_sees_update') == v)
+        s[f'cc_{c}_nocheck'] = sum(1 for k, sh in prim.items() if check_class(k, sh) == c and V(sh, 'P4', 'checker_sees_update') == 'no-check')   # V95
     s['cc_content_no_tested'] = sum(1 for k, sh in prim.items() if check_class(k, sh) == 'content' and V(sh, 'P4', 'checker_sees_update') == 'no'
                                     and attacks_learning(sh))
 
@@ -808,7 +799,7 @@ def tables(S, fin, s, md_table):
         ids = [k for k in zk if ZK_RELATION.get(k) == r]
         if not ids:
             continue
-        on = [k for k in ids if V(zk[k], 'P4', 'zk_on_chain') == 'yes']
+        on = [k for k in ids if zk_on_ledger(zk[k])]
         hid = [k for k in ids if V(zk[k], 'P4', 'checker_sees_update') == 'no']
         cost = '; '.join(f'{ZK_COST[k]} [@{k}]' for k in sorted(ids) if ZK_COST.get(k)) or 'not reported'
         rows.append([name, f'{len(ids)} {cites(ids)}', f'{len(on)}' + (f' {cites(on)}' if on and len(on) < len(ids) else ''),
@@ -822,7 +813,7 @@ def tables(S, fin, s, md_table):
                   'and hardware, which differ.')
     for r, _ in ZK_RELATIONS:
         s[f'zkrel_{r}'] = sum(1 for k in zk if ZK_RELATION.get(k) == r)
-    s['zk_on_ledger'] = sum(1 for sh in zk.values() if V(sh, 'P4', 'zk_on_chain') == 'yes')
+    s['zk_on_ledger'] = sum(1 for sh in zk.values() if zk_on_ledger(sh))
     s['zk_claimed_update'] = sum(1 for k in zk if ZK_RELATION.get(k) in ('bound', 'training', 'unspecified-update', 'commitment')
                                  or (k == 'n0414'))   # presented as proving the update or its training
     s['zk_stated_update'] = sum(1 for k in zk if ZK_RELATION.get(k) in ('bound', 'training'))
@@ -852,11 +843,11 @@ def tables(S, fin, s, md_table):
              'measured (a study may name several settings and enablers).', ['Feature', 'Studies'], rows, widths=[34, 66])
 
     # ---- privacy mechanisms (P2), by the kind of protection they give, and what each keeps from the party that aggregates
-    KEEPS = {'Confidentiality of the update': 'the update itself, in {h} of these designs',
-             'Output privacy': 'nothing: the update is shared with noise added; noise is the only protection from the aggregator in {n} designs',
+    KEEPS = {'Confidentiality of the update': 'the update',                      # what the aggregator cannot observe (V91: short cells)
+             'Output privacy': 'nothing; noise is the only protection in {n}',
              'Unlinkability': 'the participant\'s identity, not the update',
-             'Proofs that hide their witness': 'the witness of the statement proved; the update only where it is committed or encrypted',
-             'Transport only': 'nothing from the aggregator; the update from outsiders on the link'}
+             'Proofs that hide their witness': 'the proof\'s witness; the update only where committed or encrypted',
+             'Transport only': 'nothing; the link is protected from outsiders'}
     rows = []
     for kind, mechs in PROTECTION_KINDS:
         for m in mechs:
@@ -865,11 +856,15 @@ def tables(S, fin, s, md_table):
                 continue
             h = sum(1 for k in ids if hidden_kind(prim[k]) == 'hidden')
             n = sum(1 for k in ids if hidden_kind(prim[k]) == 'noised')
-            rows.append([kind, MECH_NAME[m], f'{len(ids)} {cites(ids)}', KEEPS[kind].format(h=h, n=n)])
-    md_table('privacy', 'Privacy mechanisms of the designs, and what each keeps from the aggregator',
-             ['Kind of protection', 'Mechanism', 'Studies', 'What it keeps from the server or aggregator'], rows, widths=[17, 17, 38, 28],
-             note='A study may use several mechanisms. A design keeps its updates from the aggregator when they reach it encrypted, '
-                  'secret-shared, masked or inside an enclave whose host cannot read them.')
+            concealed = str(h) if kind == 'Confidentiality of the update' else '–'
+            if kind == 'Confidentiality of the update':
+                s[f'conceal_{slug(m)}'] = h                                   # V95: the text reads the SQ2 chart by these
+            rows.append([MECH_NAME[m], kind, f'{len(ids)} {cites(ids)}', concealed, KEEPS[kind].format(n=n)])
+    md_table('privacy', 'Privacy mechanisms of the designs, and what each conceals from the aggregator',
+             ['Mechanism', 'Kind of protection', 'Designs using it', 'Of these, update concealed from the aggregator', 'What the aggregator cannot observe'],
+             rows, widths=[15, 15, 36, 14, 20],
+             note='A design may use several mechanisms. An update is concealed from the aggregator when it reaches the aggregating party encrypted, '
+                  'split into secret shares, masked or inside an enclave whose host cannot read it; noise alone does not qualify.')
     s['hk_hidden'] = sum(1 for sh in prim.values() if hidden_kind(sh) == 'hidden')
     s['hk_noised'] = sum(1 for sh in prim.values() if hidden_kind(sh) == 'noised')
     s['hk_seen'] = len(prim) - s['hk_hidden'] - s['hk_noised']
@@ -888,7 +883,7 @@ def tables(S, fin, s, md_table):
     other_proofs = [k for k, sh in prim.items() if 'proof-verification' in L(sh, 'P3', 'roles') and k not in c3 + c3g]
     other_checks = [k for k, sh in prim.items() if ledger_checks_other(k, sh) and k not in other_proofs]
     rows = [['Type', a, b] for a, b in by('ledger')]
-    rows += [['What the ledger does', 'checks the updates itself: its nodes or contracts check their content, or verify a proof about each update or its training (C3)', f'{len(c3)} {cites(c3)}'],
+    rows += [['What the ledger does', 'checks the updates itself: its nodes or contracts check their content, or verify a proof about each update or its training', f'{len(c3)} {cites(c3)}'],
              ['What the ledger does', 'verifies a proof that the aggregation is correct, not the updates', f'{len(c3g)} {cites(c3g)}'],
              ['What the ledger does', 'verifies proofs of other statements only (identity, an inference, other records, or a statement whose relation is not stated)', f'{len(other_proofs)} {cites(other_proofs)}'],
              ['What the ledger does', 'checks signatures, deadlines, freshness or format of the updates only', f'{len(other_checks)} {cites(other_checks)}']]
@@ -907,7 +902,7 @@ def tables(S, fin, s, md_table):
     rows.append(['What it holds', 'only records whose status depends on the scheme, or proofs', f'{len(b_led)} {cites(b_led)}'])
     md_table('ledger', 'Ledgers of the designs: type, roles and what they hold',
              ['Aspect', 'Feature', 'Studies'], rows, widths=[22, 38, 40],
-             note='What the ledger holds is read by the criteria of Section III-E: data in the clear or encrypted, identifiers, keys, and '
+             note='What the ledger holds is read by the criteria of Section III-E: data in plaintext or encrypted, identifiers, keys, and '
                   'scores or payments about a participant remain personal data wherever they relate to a person; a salted or keyed hash '
                   'remains personal data and a perfectly hiding commitment does not once the data and its opening are deleted, so hashes and '
                   'commitments, like models, aggregates and logs, depend on the scheme; a proof reveals nothing about its witness. A study '
@@ -919,6 +914,7 @@ def tables(S, fin, s, md_table):
     s['c3_sees_unclear'] = sum(1 for k in c3 if V(prim[k], 'P4', 'checker_sees_update') == 'unclear')
     s['ledger_other_proofs'] = len(other_proofs)
     s['ledger_other_checks'] = len(other_checks)
+    s['ledger_verifies_other'] = len(c3g) + len(other_proofs) + len(other_checks)      # V95: the text accounts for every design
     s['ledger_records_only'] = len(prim) - len(c3) - len(c3g) - len(other_proofs) - len(other_checks)
     s['onchain_a'] = len(a_led)
     s['onchain_b'] = len(b_led)
@@ -935,9 +931,14 @@ def tables(S, fin, s, md_table):
         if not cl:
             continue
         nd = [k for k in te if t in ATTACK_NOT_DESCRIBED.get(k, set())]
-        rows.append([name, f'{len(cl)} {cites(cl)}', f'{len(te)} {cites(te)}' + (f' (attack not described: {cites(nd)})' if nd else '')])
+        rows.append([name, f'{len(cl)} {cites(cl)}', f'{len(te)} {cites(te)}' + (f' (attack not described: {cites(nd)})' if nd else ''),
+                     t, f'{len(te)} ' + ', '.join(([cites([k for k in te if k not in nd])] if len(nd) < len(te) else []) + [f'{cites([k])}†' for k in sorted(nd)]) if te else f'{len(te)} –'])
+    md_table('threats_full', 'Threats the designs address, and those they report a test against, every threat recorded',
+             ['Threat', 'Addressed', 'Test reported'], [r[:3] for r in rows], widths=[24, 46, 30])
     md_table('threats', 'Threats the designs address, and those they report a test against',
-             ['Threat', 'Claimed', 'Test reported'], rows, widths=[24, 46, 30])
+             ['Threat', 'Claimed', 'Test reported'], [[r[0], r[1], r[4]] for r in rows if r[3] not in OUTSIDE_SQ], widths=[24, 46, 30],
+             note='†: a test is reported, but the attack is not described. Threats to the ledger itself (tampering with records or models, a single '
+                  'point of failure, Byzantine validators or committee members) are not listed.')
     for t in list(THREAT_NAME) + ['byzantine-consensus']:       # claimed and tested, Byzantine claims about the consensus apart
         te = [k for k, sh in prim.items() if t in threats_of(k, sh, 'tested') and t in threats_of(k, sh, 'claimed')]
         s[f'tested_described_{slug(t)}'] = sum(1 for k in te if t not in ATTACK_NOT_DESCRIBED.get(k, set()) and
@@ -1009,15 +1010,12 @@ def tables(S, fin, s, md_table):
     rows = []
     fy = {r['corpus_id']: r['year'] for r in fin}
     for k, sh in sorted(prim.items(), key=lambda kv: (fy.get(kv[0], ''), kv[0])):
-        rows.append([f'[@{k}]', fy.get(k, ''), short(L(sh, 'P1', 'settings'), {}), short(L(sh, 'P1', 'enablers'), ENABLER_SHORT),
-                     short([m for m in L(sh, 'P2', 'mechanisms') if m in mechanisms_used(sh)], {}),
-                     ', '.join(L(sh, 'P3', 'ledger')), short(L(sh, 'P4', 'checked'), {}), short([t for t in L(sh, 'P5', 'tested')], {}) ])
-    md_table('chars_primary', 'Characteristics of the included designs',
+        rows.append([f'[@{k}]', fy.get(k, ''), tags_short(L(sh, 'P1', 'settings')), short(L(sh, 'P1', 'enablers'), ENABLER_SHORT),
+                     tags_short([m for m in L(sh, 'P2', 'mechanisms') if m in mechanisms_used(sh)]),
+                     tags_short(L(sh, 'P3', 'ledger')), tags_short(L(sh, 'P4', 'checked')), tags_short(L(sh, 'P5', 'tested'))])
+    md_table('chars_primary_full', 'Characteristics of the included designs, with every recorded tag',
              ['Study', 'Year', 'Setting', 'Enabler', 'Privacy', 'Ledger', 'Checked', 'Attacks tested'], rows, widths=[10, 6, 14, 11, 17, 12, 16, 14])
-    rows = []
-    for k, sh in sorted(sec.items(), key=lambda kv: (fy.get(kv[0], ''), kv[0])):
-        n = V(sh, 'S1', 'studies', 'not stated')
-        rows.append([f'[@{k}]', fy.get(k, ''), str(n), V(sh, 'S1', 'period', 'not stated'),
-                     short(L(sh, 'S3', 'mechanisms'), {})])
-    md_table('chars_secondary', 'Characteristics of the secondary studies (from the extraction records).',
-             ['Survey', 'Year', 'Studies', 'Period', 'Privacy mechanisms covered'], rows, widths=[10, 7, 10, 20, 53])
+    drop_other = lambda c: ', '.join(x for x in c.split(', ') if x != 'other') or c    # "other" says nothing beside a named tag (V95)
+    md_table('chars_primary', 'Characteristics of the included designs',
+             ['Study', 'Year', 'Setting', 'Privacy', 'Ledger', 'Checked', 'Attacks tested'],
+             [[r[0], r[1], r[2]] + [drop_other(c) for c in r[4:]] for r in rows], widths=[11, 6, 16, 19, 13, 19, 16])

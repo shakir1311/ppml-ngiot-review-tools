@@ -1,1 +1,2 @@
 commit ed177a085b65 2026-10-27
+2026-11-17: arrow-back-up arrows-split-2 award battery-2 box-multiple building bulb calendar chart-dots chart-line checks circle-check circle-x coins equal eraser file-search file-text flag hourglass list-check math-function message-circle notebook pencil plus presentation-analytics puzzle question-mark receipt rocket school scissors stopwatch target-arrow trash user-shield users world zoom-check zoom-question added from the same commit (outline set), for the conference poster

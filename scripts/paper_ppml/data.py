@@ -336,7 +336,7 @@ def declaration_tables():
                                       'refinement, are kept with the review records.'],
         ['Data availability', 'The search strings and their provenance, the screening and eligibility decisions, the extraction records with '
                               'their tags, the scripts that compute every count, table and figure, and the harnesses and run summaries of the first '
-                              'experiment are maintained at <https://github.com/shakir1311/ppml-ngiot-review-tools> and archived at Zenodo under the MIT licence (DOI: <https://doi.org/10.5281/zenodo.23895402>). The quotations of the papers and the database '
+                              'experiment are maintained at <https://github.com/shakir1311/ppml-ngiot-review-tools> and archived at Zenodo under the MIT licence (DOI of all versions: <https://doi.org/10.5281/zenodo.23895401>, which resolves to the latest). The quotations of the papers and the database '
                               'exports are not redistributed, under the publishers\' terms, and are available on request.'],
         ['Funding', 'TBD.'],
         ['Competing interests', 'TBD.']], widths=[22, 78])

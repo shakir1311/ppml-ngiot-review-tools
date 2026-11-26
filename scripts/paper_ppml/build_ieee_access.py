@@ -47,7 +47,7 @@ def prepare_markdown(md):
     body = re.sub(r'^## ([A-Z])\. ', '## ', body, flags=re.M)                                                 # letters: the style numbers
     body = re.sub(r'^!\[Fig\. \d+\. ', '![', body, flags=re.M)                                                # FIGURE n. comes from the style
     body = re.sub(r'^Table: Table ([IVX]+)\. ', lambda m: f'Table: TABLE {ROMAN[m.group(1)]}. ', body, flags=re.M)
-    body = re.sub(r'\bTable ([IVX]+)\b(?![.\w])', lambda m: f'Table {ROMAN[m.group(1)]}' if m.group(1) in ROMAN else m.group(0), body)   # in-text mentions
+    body = re.sub(r'\bTable ([IVX]+)\b(?!\w)', lambda m: f'Table {ROMAN[m.group(1)]}' if m.group(1) in ROMAN else m.group(0), body)   # in-text mentions
     body = re.sub(r'^\[(\d+)\] ', '', body, flags=re.M)                                                       # [n] comes from the style
     return title, author, abstract_text, terms_text, body
 
@@ -189,7 +189,7 @@ def main(version, tag=''):
     before('Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.', 'DOP')
     before('Digital Object Identifier 10.1109/ACCESS.2026.Doi Number', 'DOI')
     before(title, 'Paper Title')
-    before(f'{author.split(",")[0].strip()}1 (ORCID 0009-0005-2841-4373) [AUTHOR: co-authors and memberships to add]', 'AU')
+    before('Shakir Zareen1 (ORCID 0009-0005-2841-4373), Shailendra Rathore1, Laith Al-Jobouri1, and Sanaz Kavianpour1 [AUTHOR: the co-authors\' ORCIDs and IEEE memberships]', 'AU')   # the four authors (V91)
     before('1Faculty of Design, Informatics and Business, Abertay University, Dundee DD1 1HG, U.K.', 'PI_No Space')
     before('Corresponding author: Shakir Zareen (e-mail: s.zareen2400@abertay.ac.uk).', 'PI')
     before('[AUTHOR: funding and support statement, as the template\'s first footnote: "This work was supported in part by …".]', 'footnote text')

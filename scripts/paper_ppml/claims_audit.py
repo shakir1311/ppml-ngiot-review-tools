@@ -45,18 +45,18 @@ import check_sheets as CS                                          # noqa: E402 
 
 UNIT_VERDICTS = {'supported', 'partly', 'unsupported', 'contradicted', 'misattributed'}
 VALUE_VERDICTS = {'correct', 'partly', 'wrong', 'unclear'}
+# the values a packet lists: the fields audited since V81, less the ones that went with the merge of the answers on 15 October
+# 2026 (zk_on_chain, verification, zkp, edpb, ai_act, databases, period, studies); a value is looked up by field name across the
+# answers. Fields the merged records carry but no audit round has yet covered (cost_where, costs_reported, trusted, environment, scale,
+# and the surveys' fabric, privacy, trust, attacks, regulation) join the list only with an audit round of their own (V90 note).
 PRIMARY_FIELDS = {'P1': ['settings', 'enablers', 'fl', 'device_measured', 'network_measured'],
                   'P2': ['mechanisms', 'protects', 'hidden_from'],
                   'P3': ['ledger', 'platform', 'consensus', 'on_chain', 'roles'],
-                  'P4': ['checked', 'checker', 'checker_sees_update', 'zk_used', 'zk_shows', 'zk_on_chain'],
+                  'P4': ['checked', 'checker', 'checker_sees_update', 'zk_used', 'zk_shows'],
                   'P5': ['claimed', 'tested', 'defences'],
                   'P6': ['datasets', 'baselines', 'code'],
                   'P7': ['laws', 'personal_data_on_chain', 'erasure']}
-SECONDARY_FIELDS = {'S1': ['databases', 'period', 'studies'],
-                    'S2': ['fabric', 'privacy', 'trust', 'attacks', 'regulation'],
-                    'S3': ['mechanisms'],
-                    'S4': ['poisoning', 'malicious_fake', 'free_riding', 'verification', 'zkp', 'blockchain'],
-                    'S5': ['laws', 'edpb', 'ai_act']}
+SECONDARY_FIELDS = {'S4': ['poisoning', 'malicious_fake', 'free_riding', 'blockchain']}
 PROCESS_SECTIONS = ('Front', 'III', 'X', 'Declarations')             # claims about the review's own process
 
 

@@ -24,7 +24,7 @@ UNNUMBERED = ('Declarations', 'Appendix', 'References', 'Acknowledgment', 'Ackno
 TEXT_W_PT = 504.7          # \textwidth of the class (177.53 mm)
 TEXT_H_PT = 672.0          # \textheight of the class
 TABCOLSEP_PT = 3.0
-CHUNK_PT = 500.0           # a table whose estimated height passes this is set as successive table* floats, "(continued)" after the first
+CHUNK_PT = 500.0           # with no measurement (pdflatex failed): a table whose estimated height passes this is set in pieces, "(continued)" after the first
 COL_W_PT = 242.4           # \columnwidth of the class (85.29 mm)
 COL_H_MAX = 0.85 * TEXT_H_PT   # a table of at most 3 columns that fits this in one column is set as a single-column float (V86)
 RESOURCES = ('ieeeaccess.cls', 'spotcolor.sty', 'logo.png', 'notaglinelogo.png', 'bullet.png')
@@ -120,7 +120,11 @@ def split_blocks(body):
             sep = cells(rows[1]); aligns = ['r' if s.endswith(':') and not s.startswith(':') else 'l' for s in sep]
             dashes = [max(1, s.count('-')) for s in sep]; tot = sum(dashes); widths = [d / tot for d in dashes]
             m = re.match(r'Table ([IVX]+)\. (.*)', cap); num = ROMAN[m.group(1)] if m else len([b for b in blocks if b[0] == 'table']) + 1
-            blocks.append(('table', num, m.group(2) if m else cap, cells(rows[0]), aligns, widths, [cells(r) for r in rows[2:]]))
+            note, k = '', j                                                   # V95: the note under a table goes into its float, not the text flow
+            while k < len(lines) and not lines[k].strip(): k += 1
+            if k < len(lines) and re.fullmatch(r'\*[^*].*[^*]\*', lines[k].strip()):
+                note, j = lines[k].strip()[1:-1], k + 1
+            blocks.append(('table', num, m.group(2) if m else cap, cells(rows[0]), aligns, widths, [cells(r) for r in rows[2:]], note))
             i = j; continue
         m = re.match(r'^!\[Fig\. (\d+)\. (.*)\]\((.*?)\)(\{.*\})?$', ln)
         if m:
@@ -153,7 +157,7 @@ def refs_fix(tex):
 
 def mark_mentions(md):
     md = re.sub(r'\bFig\. (\d+)\b', r'FIGREF\1', md)
-    md = re.sub(r'\bTable ([IVX]+)\b(?![.\w])', lambda m: f'TABREF{ROMAN[m.group(1)]}' if m.group(1) in ROMAN else m.group(0), md)
+    md = re.sub(r'\bTable ([IVX]+)\b(?!\w)', lambda m: f'TABREF{ROMAN[m.group(1)]}' if m.group(1) in ROMAN else m.group(0), md)
     return md
 
 
@@ -175,32 +179,127 @@ def row_heights(header, rows, widths, font_pt, total_w=TEXT_W_PT):
     return lines(header) * line_pt, [lines(r) * line_pt for r in rows]
 
 
-def table_tex(num, cap, header, aligns, widths, rows, font):
+def spec_of(aligns, widths, total_w, unit):
+    usable = (total_w - 2 * TABCOLSEP_PT * len(widths) - 2) / total_w
+    return ''.join(('>{\\raggedleft\\arraybackslash}' if a == 'r' else '>{\\raggedright\\arraybackslash}') + f'p{{{w * usable:.4f}{unit}}}' for a, w in zip(aligns, widths))
+
+
+def header_tex(header):
+    return ' & '.join(f'\\textbf{{{h}}}' if h else '' for h in header) + ' \\\\'
+
+
+def row_tex(r, ncol):
+    return ' & '.join(r + [''] * (ncol - len(r))) + ' \\\\'
+
+
+def measure_tables(tables):
+    """the exact height of every header and row of every table, typeset once by pdflatex in the class at the table's own widths
+    (V93: the earlier estimate, half the font size per character, overstated heights and cut tables that fit a page, and LaTeX
+    then set two or three pieces of one table on the same page). Returns {(num, 'col'|'text'): (header_pt, [row_pt, …])}."""
+    import tempfile
+    lines = []
+    for num, cap, header, aligns, widths, rows, font, *_ in tables:
+        ncol = len(widths)
+        for kind, total_w, unit in (('text', TEXT_W_PT, '\\textwidth'),) + ((('col', COL_W_PT, '\\columnwidth'),) if ncol <= 3 else ()):
+            spec = spec_of(aligns, widths, total_w, unit)
+            for i, r in enumerate([None] + rows):
+                body = header_tex(header) if r is None else row_tex(r, ncol)
+                lines.append(f'\\setbox0=\\vbox{{{font}\\begin{{tabular}}{{{spec}}}{body}\\end{{tabular}}}}'
+                             f'\\typeout{{MEAS:{num}:{kind}:{i}:\\the\\ht0:\\the\\dp0}}')
+    doc = PREAMBLE + '\n\\begin{document}\n' + '\n'.join(lines) + '\n\\end{document}\n'
+    with tempfile.TemporaryDirectory() as tmp:
+        for f in TPL.iterdir():
+            if f.name in RESOURCES or f.suffix in ('.pfb', '.tfm', '.map', '.fd'): shutil.copy2(f, pathlib.Path(tmp) / f.name)
+        (pathlib.Path(tmp) / 'measure.tex').write_text(doc, encoding='utf-8')
+        r = subprocess.run(['pdflatex', '-interaction=nonstopmode', 'measure.tex'], cwd=tmp, capture_output=True, text=True)
+        log = (pathlib.Path(tmp) / 'measure.log').read_text(encoding='utf-8', errors='replace')
+    out = {}
+    for num, kind, i, ht, dp in re.findall(r'MEAS:(\d+):(\w+):(\d+):([\d.]+)pt:([\d.]+)pt', log):
+        hdr, rws = out.setdefault((int(num), kind), [0.0, []])
+        h = float(ht) + float(dp)
+        if int(i) == 0: out[(int(num), kind)][0] = h
+        else: rws.append(h)
+    if not out:
+        print('table measurement failed; the estimate is used')
+    return out
+
+
+CAPTION_PT = 30.0          # a caption of up to two lines and its skip
+RULES_PT = 3.0             # the three \hline rules
+PAGE_FLOAT_PT = TEXT_H_PT - 16.0   # the most a float may hold and still go to the top of a page
+
+
+def table_tex(num, cap, header, aligns, widths, rows, font, note='', meas=None):
     """one table* float, or, for a table taller than a page, successive table* floats that share the number (the class has no
-    page-crossing table in its two-column grid): the first carries the caption, the others "(continued)" and the header row"""
+    page-crossing table in its two-column grid): the first carries the caption, the others "(continued)" and the header row.
+    With meas (measure_tables) the heights are exact and a table is split only when it cannot fit on one page; each piece
+    then fills a page, so two pieces never share one (V93)"""
     ncol = len(widths); font_pt = {'\\footnotesize': 8, '\\scriptsize': 7}[font]
+    note_pt = lambda w: (len(re.sub(r'\\[a-zA-Z]+|[{}]', '', note)) * 7 * 0.5 / w + 1) * 7 * 1.25 + 4 if note else 0   # an estimate of the note's lines at 7 pt
     # a narrow table that fits one column goes in the column flow, where LaTeX has four times the places for it (V86)
-    env, total_w, unit = 'table*', TEXT_W_PT, '\\textwidth'
+    env, total_w, unit, kind = 'table*', TEXT_W_PT, '\\textwidth', 'text'
     if ncol <= 3:
-        h1, hs = row_heights(header, rows, widths, font_pt, COL_W_PT)
-        if h1 + sum(hs) + 40 <= COL_H_MAX: env, total_w, unit = 'table', COL_W_PT, '\\columnwidth'
-    usable = (total_w - 2 * TABCOLSEP_PT * ncol - 2) / total_w
-    spec = ''.join(('>{\\raggedleft\\arraybackslash}' if a == 'r' else '>{\\raggedright\\arraybackslash}') + f'p{{{w * usable:.4f}{unit}}}' for a, w in zip(aligns, widths))
-    hdr = ' & '.join(f'\\textbf{{{h}}}' if h else '' for h in header) + ' \\\\'
-    h_hdr, h_rows = row_heights(header, rows, widths, font_pt, total_w)
-    chunks = [[]]; used = h_hdr + 40
-    for r, h in zip(rows, h_rows):
-        if chunks[-1] and used + h > CHUNK_PT: chunks.append([]); used = h_hdr + 40
-        chunks[-1].append(r); used += h
+        if meas and (num, 'col') in meas:
+            h1, hs = meas[(num, 'col')]
+        else:
+            h1, hs = row_heights(header, rows, widths, font_pt, COL_W_PT)
+        if h1 + sum(hs) + CAPTION_PT + RULES_PT + note_pt(COL_W_PT) <= COL_H_MAX: env, total_w, unit, kind = 'table', COL_W_PT, '\\columnwidth', 'col'
+    spec = spec_of(aligns, widths, total_w, unit)
+    hdr = header_tex(header)
+    if meas and (num, kind) in meas and len(meas[(num, kind)][1]) == len(rows):
+        h_hdr, h_rows = meas[(num, kind)]; limit = PAGE_FLOAT_PT
+    else:
+        h_hdr, h_rows = row_heights(header, rows, widths, font_pt, total_w); limit = CHUNK_PT
+    chunks = [[]]; used = h_hdr + CAPTION_PT + RULES_PT
+    if used + sum(h_rows) + note_pt(total_w) > limit:
+        for r, h in zip(rows, h_rows):
+            if chunks[-1] and used + h > limit: chunks.append([]); used = h_hdr + CAPTION_PT + RULES_PT
+            chunks[-1].append(r); used += h
+    else:
+        chunks = [rows]
     out = []
     for k, chunk in enumerate(chunks):
-        body = '\n'.join(' & '.join(r + [''] * (ncol - len(r))) + ' \\\\' for r in chunk)
+        body = '\n'.join(row_tex(r, ncol) for r in chunk)
         caption = f'\\caption{{{cap}}}\\label{{tab:{num}}}' if k == 0 else f'\\addtocounter{{table}}{{-1}}\\caption{{(continued)}}'
         place = ('[!tb]' if env == 'table*' else '[!htb]') if os.environ.get('PPML_LATEX_PLACEMENT', 'tb') == 'tb' else ('[tbp]' if env == 'table*' else '[H]')
         # tb (the default since V88): floats go to the top or bottom of a column, never to a page of their own, which left half pages empty; H anchored a narrow table where cited but dragged the text after it to the next column
+        foot = (f'\n\\par\\vspace{{3pt}}{{\\scriptsize\\raggedright\\emph{{{note}}}\\par}}' if note and k == len(chunks) - 1 else '')   # V95: under its table
         out.append(f'\\begin{{{env}}}{place}\n{caption}\n\\centering{font}\n'
-                   f'\\begin{{tabular}}{{{spec}}}\n\\hline\n{hdr}\n\\hline\n{body}\n\\hline\n\\end{{tabular}}\n\\end{{{env}}}')
+                   f'\\begin{{tabular}}{{{spec}}}\n\\hline\n{hdr}\n\\hline\n{body}\n\\hline\n\\end{{tabular}}{foot}\n\\end{{{env}}}')
     return '\n\n'.join(out)
+
+
+FLOAT_ENV = re.compile(r'\\begin\{(figure\*|table\*|table)\}.*?\\end\{\1\}', re.S)
+
+
+def hoist_floats(body):
+    """every float defined just before the paragraph that first mentions it (V96). The builder set each float where the markdown
+    placed it, after the paragraph that cites it or later; a two-column float can appear only from the page after the one where
+    it is defined, so Figs. 5 to 7 of V95 sat two pages after their sections. A float is moved only earlier, and under a section heading
+    rather than before it, and a "(continued)" piece of a split table (it has no label) keeps its place after the first piece."""
+    floats = []
+    def take(m):
+        floats.append(m.group(0)); return f'@@FLOAT{len(floats) - 1}@@'
+    paras = FLOAT_ENV.sub(take, body).split('\n\n')
+    before = {}                                                     # paragraph -> the floats moved before it, in their own order
+    for i, f in enumerate(floats):
+        lab = re.search(r'\\label\{((?:fig|tab):\d+)\}', f)
+        if not lab:
+            continue
+        tok = f'@@FLOAT{i}@@'
+        home = next(k for k, q in enumerate(paras) if tok in q)
+        first = next((k for k, q in enumerate(paras) if re.search(r'\\ref\{' + re.escape(lab.group(1)) + r'\}', q)), None)   # floats are tokens here, so a caption's \\ref cannot match
+        if first is not None and first < home:
+            paras[home] = paras[home].replace(tok, '').strip('\n')
+            before.setdefault(first, []).append(tok)
+    for k, toks in before.items():                                  # LaTeX numbers floats in the order of the source: keep it
+        h = re.match(r'(\s*\\(?:sub)*section\*?\{[^\n]*\}[^\n]*\n)', paras[k])     # a heading stays first: the floats go under it
+        lead = '\n\n'.join(toks) + '\n\n'
+        paras[k] = (h.group(1) + lead + paras[k][h.end():]) if h else (lead + paras[k])
+    out = '\n\n'.join(q for q in paras if q.strip())
+    for i, f in enumerate(floats):
+        out = out.replace(f'@@FLOAT{i}@@', f)
+    return out
 
 
 def figure_tex(num, cap, name):
@@ -220,13 +319,14 @@ def main(version, compile_pdf=False, out=None):
         if b[0] == 'table':
             slots[bi] = len(snippets); snippets.append(mark_mentions(cites(b[2])))
             snippets.extend(mark_mentions(cites(c)) for c in b[3]); snippets.extend(mark_mentions(cites(c)) for r in b[6] for c in r)
+            snippets.append(mark_mentions(cites(b[7])) if b[7] else '')
         elif b[0] == 'figure':
             slots[bi] = len(snippets); snippets.append(mark_mentions(cites(b[2])))
         elif b[0] == 'refs':
             slots[bi] = len(snippets); snippets.extend(t for _, t in b[1])
     tex_snips = [refs_fix(s) for s in pandoc_many(snippets)]
     abstract_tex, terms_tex = tex_snips[0], tex_snips[1]
-    parts = []; bib = []; figures = []
+    parts = []; bib = []; figures = []; pending = []
     for bi, b in enumerate(blocks):
         if b[0] == 'text':
             tex_part = refs_fix(pandoc(mark_mentions(cites(b[1]))))
@@ -238,18 +338,21 @@ def main(version, compile_pdf=False, out=None):
             cells = tex_snips[k + 1 + ncol:k + 1 + ncol + ncol * len(b[6])]
             rows = [cells[r * ncol:(r + 1) * ncol] for r in range(len(b[6]))]
             font = '\\scriptsize' if ncol >= 6 or any(len(c) > 400 for r in b[6] for c in r) else '\\footnotesize'
-            parts.append(table_tex(b[1], cap, hdr, b[4], b[5], rows, font))
+            note = tex_snips[k + 1 + ncol + ncol * len(b[6])] if b[7] else ''
+            pending.append((b[1], cap, hdr, b[4], b[5], rows, font, note)); parts.append(('TABLE', len(pending) - 1))
         elif b[0] == 'figure':
             src = pathlib.Path(b[3]); figures.append(src)
             parts.append(figure_tex(b[1], tex_snips[slots[bi]], src.name))
         elif b[0] == 'refs':
             k = slots[bi]; bib = [f'\\bibitem{{r{n}}} {tex_snips[k + j]}' for j, (n, _) in enumerate(b[1])]
+    meas = measure_tables(pending)                                   # exact heights of every row (V93)
+    parts = [table_tex(*pending[p[1]], meas=meas) if isinstance(p, tuple) and p[0] == 'TABLE' else p for p in parts]
     surname = author.split(',')[0].strip().split()[-1]
     short_title = re.sub(r'\s*\(NG-IoT\)', '', title).split(':')[0]
     head = (f'\\vol{{XX}}\\year{{2026}}\n'                                   # the footer's "VOLUME XX, 2026" (the class defaults to 11, 2023)
             f'\\history{{Date of publication xxxx 00, 0000, date of current version xxxx 00, 0000.}}\n'
             f'\\doi{{10.1109/ACCESS.2026.Doi Number}}\n\n\\title{{{title}}}\n'
-            f'\\author{{\\uppercase{{{author.split(",")[0].strip()}}}\\authorrefmark{{1}} (ORCID 0009-0005-2841-4373) [AUTHOR: co-authors and memberships]}}\n'
+            f'\\author{{\\uppercase{{Shakir Zareen}}\\authorrefmark{{1}} (ORCID 0009-0005-2841-4373), \\uppercase{{Shailendra Rathore}}\\authorrefmark{{1}}, \\uppercase{{Laith Al-Jobouri}}\\authorrefmark{{1}}, and \\uppercase{{Sanaz Kavianpour}}\\authorrefmark{{1}} [AUTHOR: the co-authors\' ORCIDs and IEEE memberships]}}\n'
             f'\\address[1]{{Faculty of Design, Informatics and Business, Abertay University, Dundee DD1 1HG, U.K. (e-mail: s.zareen2400@abertay.ac.uk)}}\n'
             f'\\tfootnote{{[AUTHOR: funding and support statement, as the template\'s first footnote: ``This work was supported in part by \\ldots\'\'.]}}\n\n'
             f'\\markboth\n{{{surname}: {short_title}}}\n{{{surname}: {short_title}}}\n\n'
@@ -257,10 +360,12 @@ def main(version, compile_pdf=False, out=None):
             f'\\begin{{abstract}}\n{abstract_tex}\n\\end{{abstract}}\n\n\\begin{{keywords}}\n{terms_tex}\n\\end{{keywords}}\n\n\\titlepgskip=-21pt\n\n\\maketitle\n')
     ai_tab = next((b[1] for b in blocks if b[0] == 'table' and 'Use of generative AI' in b[2]), None)
     ack = (f'\n\\section*{{Acknowledgment}}\nClaude (Anthropic) was used as described in Table~\\ref{{tab:{ai_tab}}}; the reviewer verified its output and is responsible for the content.\n') if ai_tab else '\n'
+    # no barrier before the references (V96 tried one: with too little end-matter text beside the end tables it emptied half pages;
+    # appendix tables at the tops of reference pages are the class's ordinary float placement)
     tail = (ack + '\n\\begin{thebibliography}{00}\n\n' + '\n\n'.join(bib) + '\n\n\\end{thebibliography}\n\n'
             '\\begin{IEEEbiographynophoto}{SHAKIR ZAREEN} [AUTHOR: biography, and a photograph through the IEEEbiography form of the template.]\n'
             '\\end{IEEEbiographynophoto}\n\n\\EOD\n\n\\end{document}\n')
-    tex = PREAMBLE + ('\\raggedbottom\n' if os.environ.get('PPML_LATEX_RAGGED') else '') + '\n\\begin{document}\n\n' + head + '\n' + '\n\n'.join(parts) + '\n' + tail
+    tex = PREAMBLE + ('\\raggedbottom\n' if os.environ.get('PPML_LATEX_RAGGED') else '') + '\n\\begin{document}\n\n' + head + '\n' + hoist_floats('\n\n'.join(parts)) + '\n' + tail
     out = pathlib.Path(out) if out else OUT / f'{NAME} - V{version} IEEE Access LaTeX'
     if out.exists(): sys.exit(f'{out.name} exists; versions are never overwritten')
     out.mkdir(); (out / 'figures').mkdir()

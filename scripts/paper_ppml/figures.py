@@ -76,33 +76,33 @@ def prisma(s):
     # layout: stage labels on the left, the flow in one column, the exclusions beside it
     for y0, hh, lab in ((20, 120, 'Identification'), (170, 330, 'Screening'), (530, 90, 'Included')):
         b.append(f'<rect x="12" y="{y0}" width="34" height="{hh}" rx="5" fill="{GOLD}" stroke="{GOLD_EDGE}" stroke-width="1"/>')
-        b.append(f'<text transform="translate(34,{y0 + hh / 2}) rotate(-90)" font-family="{F.FONT}" font-size="15" '
+        b.append(f'<text transform="translate(34,{y0 + hh / 2}) rotate(-90)" font-family="{F.FONT}" font-size="18" '
                  f'font-weight="bold" fill="{F.INK}" text-anchor="middle">{lab}</text>')
     L, LW, R, RW = 70, 440, 580, 470
     red = dict(fill=F.RED_L, stroke=F.RED)
     b.append(F.box(L, 30, LW, 100, [f"Records identified from databases (n = {f(identified)}):", f"main searches (n = {f(s['id_total'])});",
-                                    f"supplementary search (n = {f(s['rs1_records'])})"], size=15))
+                                    f"supplementary search (n = {f(s['rs1_records'])})"], size=18))
     b.append(F.box(R, 30, RW, 100, [f"Records removed before screening (n = {f(sum(removed.values()))}):", f"duplicates (n = {f(removed['duplicates'])});",
                                     f"by automated rules (n = {f(removed['by automated rules'])}); not a paper (n = {removed['not a paper']});",
-                                    f"already screened with the main searches (n = {removed['already screened']})"], **red, size=13.5))
+                                    f"already screened with the main searches (n = {removed['already screened']})"], **red, size=18))
     b.append(F.arrow(L + LW, 80, R, 80))
     b.append(F.arrow(L + LW / 2, 130, L + LW / 2, 180))
-    b.append(F.box(L, 180, LW, 60, [f"Records screened (n = {f(screened)})"], size=15))
-    b.append(F.box(R, 180, RW, 60, [f"Records excluded (n = {f(excluded_screen)})"], **red, size=13.5))
+    b.append(F.box(L, 180, LW, 60, [f"Records screened (n = {f(screened)})"], size=18))
+    b.append(F.box(R, 180, RW, 60, [f"Records excluded (n = {f(excluded_screen)})"], **red, size=18))
     b.append(F.arrow(L + LW, 210, R, 210))
     b.append(F.arrow(L + LW / 2, 240, L + LW / 2, 290))
-    b.append(F.box(L, 290, LW, 60, [f"Reports sought for retrieval (n = {sought})"], size=15))
-    b.append(F.box(R, 290, RW, 60, [f"Reports not retrieved (n = {not_retrieved})"], **red, size=13.5))
+    b.append(F.box(L, 290, LW, 60, [f"Reports sought for retrieval (n = {sought})"], size=18))
+    b.append(F.box(R, 290, RW, 60, [f"Reports not retrieved (n = {not_retrieved})"], **red, size=18))
     b.append(F.arrow(L + LW, 320, R, 320))
     b.append(F.arrow(L + LW / 2, 350, L + LW / 2, 400))
     b.append(F.box(L, 400, LW, 80, [f"Reports assessed for eligibility (n = {assessed}):", f"from the searches (n = {sought - not_retrieved});",
-                                    f"identified via other methods (n = {s['om_assessed']})"], size=15))
+                                    f"identified via other methods (n = {s['om_assessed']})"], size=18))
     order = sorted(reasons, key=lambda k: -reasons[k])
-    b.append(F.box(R, 385, RW, 110, [f"Reports excluded (n = {excluded_elig}):"] + [f"{why[k]} ({reasons[k]})" for k in order], **red, size=12.5))
+    b.append(F.box(R, 380, RW, 160, [f"Reports excluded (n = {excluded_elig}):"] + [f"{why[k]} ({reasons[k]})" for k in order], **red, size=18))
     b.append(F.arrow(L + LW, 440, R, 440))
     b.append(F.arrow(L + LW / 2, 480, L + LW / 2, 540))
     b.append(F.box(L, 540, LW, 70, [f"Studies included in the review (n = {s['included']}):", f"{s['primary']} designs and {s['secondary']} surveys"],
-                   fill=F.BLUE_L, stroke=F.BLUE, size=15))
+                   fill=F.BLUE_L, stroke=F.BLUE, size=18))
     return F.render('prisma', W, H, ''.join(b))
 
 
@@ -116,12 +116,12 @@ def taxonomy(s):
          [('on device-class hardware (C1)', g('device_measured')), ('over a network link only', g('net_only')), ('neither', P - g('device_measured') - g('net_only'))]),
         ('SQ2', F.VIOLET, F.VIOLET_L, 'Who sees an individual update?',
          [('no party that checks or aggregates (C2)', g('gap_c2')), ('a checking party, or unclear', g('hk_hidden') - g('gap_c2')),
-          ('the aggregator, noised', g('hk_noised')), ('the aggregator', g('hk_seen'))]),
+          ('the aggregator, with noise added', g('hk_noised')), ('the aggregator', g('hk_seen'))]),
         ('SQ3', F.AQUA, F.AQUA_L, 'What is checked?',
          [('the content of updates or their training', g('cc_content')), ('the aggregation only', g('cc_aggregation')),
           ('identities, format or contributions', g('cc_participants')), ('an inference or other records', g('cc_other')), ('nothing', g('cc_none'))]),
         ('SQ3', F.AQUA, F.AQUA_L, 'Does the content checker see the update?',
-         [('in full', g('cc_content_yes')), ('in part or noised', g('cc_content_partly')), ('not at all', g('cc_content_no')), ('unclear', g('cc_content_unclear'))]),
+         [('in full', g('cc_content_yes')), ('in part or with noise added', g('cc_content_partly')), ('not at all', g('cc_content_no')), ('unclear', g('cc_content_unclear'))]),
         ('SQ3', F.AQUA, F.AQUA_L, 'What do the zero-knowledge proofs prove?',
          [('a bound or training, as stated', g('zk_stated_update')), ('another statement', g('zk_used') - g('zk_stated_update')), ('no proof', P - g('zk_used'))]),
         ('SQ3', F.AQUA, F.AQUA_L, 'What does the ledger check?',
@@ -167,33 +167,34 @@ def taxonomy(s):
 
 def architecture(s):
     """where learning, hiding, checking and the ledger sit on the tiers of an NG-IoT deployment, and where the threats enter
-    (a schematic: the counts are in Section VI)"""
-    W, H, b = 1240, 600, []
-    tiers = [('Devices and sensors', 450, '#F7F7F7', '#BDBDBD'), ('Edge: gateways, roadside units, MEC servers', 300, '#EFEFEF', '#BDBDBD'),
-             ('Ledger nodes', 165, '#F7F7F7', '#BDBDBD'), ('Cloud or task requester', 40, '#EFEFEF', '#BDBDBD')]   # tiers neutral: colour means a layer
-    for name, y, fi, st in tiers:
-        b.append(f'<rect x="20" y="{y}" width="860" height="110" rx="8" fill="{fi}" stroke="{st}" stroke-width="1.4"/>')
-        b.append(F.text(866, y + 18, name, 15, 'bold', 'end', F.INK2))
-    b.append(F.box(50, 490, 250, 56, ['Local training on data that', 'often concern persons'], fill='#fff', stroke=F.BLUE, size=13.5))
-    b.append(F.box(320, 490, 270, 56, ['Hide the update (HE, sharing,', 'masking, TEE) or add noise (DP)'], fill='#fff', stroke=F.VIOLET, size=13.5))
-    b.append(F.box(610, 490, 250, 56, ['Cost on constrained devices', 'and wireless links'], fill='#fff', stroke=F.BLUE, size=13.5))
-    b.append(F.box(50, 340, 390, 56, ['Aggregate and check the updates:', 'does the party that checks see them?'], fill='#fff', stroke=F.AQUA, size=13.5))
-    b.append(F.box(460, 340, 400, 56, ['Ways to check: tests on data, similarity,', 'norm bounds; committees, TEEs, ZKPs'], fill='#fff', stroke=F.AQUA, size=13.5))
-    b.append(F.box(50, 205, 390, 56, ['Record and verify: commitments, proofs,', 'outcomes, models; smart contracts'], fill='#fff', stroke=F.AQUA, size=13.5))
-    b.append(F.box(460, 205, 400, 56, ['What the ledger holds: personal data?', 'Can it be erased? (GDPR, EDPB)'], fill='#fff', stroke=BROWN, size=13.5))
-    b.append(F.box(50, 75, 390, 50, ['Task publisher, global model, incentives'], fill='#fff', stroke=F.GREY, size=13.5))
+    (a schematic: the counts are in Section VI). V91: 20-px text on a 1,240-px canvas, 8 pt when printed two columns wide."""
+    W, H, b, S = 1240, 620, [], 20
+    tiers = [('Devices and sensors', 450, 140, '#F7F7F7', '#BDBDBD'), ('Edge: gateways, roadside units, MEC servers', 300, 140, '#EFEFEF', '#BDBDBD'),
+             ('Ledger nodes', 150, 140, '#F7F7F7', '#BDBDBD'), ('Cloud or task requester', 20, 120, '#EFEFEF', '#BDBDBD')]   # tiers neutral: colour means a layer
+    for name, y, h, fi, st in tiers:
+        b.append(f'<rect x="20" y="{y}" width="860" height="{h}" rx="8" fill="{fi}" stroke="{st}" stroke-width="1.4"/>')
+        b.append(F.text(866, y + 20, name, S, 'bold', 'end', F.INK2))
+    bh = 92
+    b.append(F.box(50, 486, 250, bh, ['Local training on data', 'that often concern', 'persons'], fill='#fff', stroke=F.BLUE, size=S))
+    b.append(F.box(320, 486, 270, bh, ['Hide the update (HE,', 'sharing, masking, TEE)', 'or add noise (DP)'], fill='#fff', stroke=F.VIOLET, size=S))
+    b.append(F.box(610, 486, 250, bh, ['Cost on constrained', 'devices and', 'wireless links'], fill='#fff', stroke=F.BLUE, size=S))
+    b.append(F.box(50, 336, 390, bh, ['Aggregate and check the updates:', 'does the party that checks', 'see them?'], fill='#fff', stroke=F.AQUA, size=S))
+    b.append(F.box(460, 336, 400, bh, ['Ways to check: tests on data,', 'similarity, norm bounds;', 'committees, TEEs, ZKPs'], fill='#fff', stroke=F.AQUA, size=S))
+    b.append(F.box(50, 186, 390, bh, ['Record and verify: commitments,', 'proofs, outcomes, models;', 'smart contracts'], fill='#fff', stroke=F.AQUA, size=S))
+    b.append(F.box(460, 186, 400, bh, ['What the ledger holds:', 'personal data? Can it be', 'erased? (GDPR, EDPB)'], fill='#fff', stroke=BROWN, size=S))
+    b.append(F.box(50, 56, 390, 64, ['Task publisher, global model,', 'incentives'], fill='#fff', stroke=F.GREY, size=S))
     for x in (175, 455):
-        b.append(F.arrow(x, 490, x, 398))
-    b.append(F.arrow(245, 340, 245, 263))
-    b.append(F.arrow(245, 205, 245, 127))
-    b.append(F.text(1065, 30, 'Where the threats enter', 15, 'bold', fill=F.RED))
-    b.append(F.box(915, 455, 305, 100, ['Poisoning', 'Malicious or fake participants', 'Free riding'], fill=F.RED_L, stroke=F.RED, size=14))
-    b.append(F.arrow(915, 505, 884, 505, color=F.RED))
-    b.append(F.box(915, 255, 305, 80, ['Inference, wherever updates are', 'seen, the ledger included;', 'denial of service'], fill=F.RED_L, stroke=F.RED, size=14))
-    b.append(f'<line x1="915" y1="295" x2="900" y2="295" stroke="{F.RED}" stroke-width="1.4"/>')
-    b.append(f'<line x1="900" y1="220" x2="900" y2="355" stroke="{F.RED}" stroke-width="1.4"/>')
+        b.append(F.arrow(x, 486, x, 430))
+    b.append(F.arrow(245, 336, 245, 280))
+    b.append(F.arrow(245, 186, 245, 122))
+    b.append(F.text(1065, 34, 'Where the threats enter', S + 2, 'bold', fill=F.RED))
+    b.append(F.box(915, 450, 305, 120, ['Poisoning', 'Malicious or fake', 'participants', 'Free riding'], fill=F.RED_L, stroke=F.RED, size=S))
+    b.append(F.arrow(915, 510, 884, 510, color=F.RED))
+    b.append(F.box(915, 230, 305, 120, ['Inference, wherever', 'updates are seen,', 'the ledger included;', 'denial of service'], fill=F.RED_L, stroke=F.RED, size=S))
+    b.append(f'<line x1="915" y1="290" x2="900" y2="290" stroke="{F.RED}" stroke-width="1.4"/>')
+    b.append(f'<line x1="900" y1="220" x2="900" y2="370" stroke="{F.RED}" stroke-width="1.4"/>')
     b.append(F.arrow(900, 220, 884, 220, color=F.RED))
-    b.append(F.arrow(900, 355, 884, 355, color=F.RED))
+    b.append(F.arrow(900, 370, 884, 370, color=F.RED))
     return F.render('architecture', W, H, ''.join(b))
 
 

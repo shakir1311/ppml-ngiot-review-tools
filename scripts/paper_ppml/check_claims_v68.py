@@ -57,7 +57,21 @@ CLAIMS = [
  ('V-D: ZKPs that establish a stated property of the update are the minority of ZKP uses', s['zk_stated_update'] < s['zk_used'] / 2),
  ('V takeaway: most designs measure on servers or in simulation', s['where_server_workstation'] + s['where_simulation'] > P / 2),
  ('VI-B: every design shows at least one step: all with no Yes have a Partial', s['cond_any_partial'] == s['cond_zero']),
-
+ ('abstract/VI-A (V89): no design reports a test against denial of service', s['tested_dos_ddos'] == 0),
+ ('VI-B (V89): in most designs a party that checks or aggregates sees an individual update (C2 unmet in most)', s['gap3_c2'] < P / 2),
+ ('VI-B (V89): most designs report no test against poisoning, malicious or fake participants or free riding (C3 unmet in most)', s['gap3_c3'] < P / 2),
+ ('VI-A (V89): the server, aggregator or task publisher is the party most often trusted',
+  s['trusted_server_aggregator'] == max(v for k, v in s.items() if k.startswith('trusted_') and k not in ('trusted_any_party', 'trusted_none', 'trusted_not_stated', 'trusted_other'))),
+ # V95: the sentences that read the result charts
+ ('V-C (V95): computation or training time and communication are the costs reported most often',
+  min(s['cost_computation_time'], s['cost_communication']) >= max(s[k] for k in ('cost_latency', 'cost_storage', 'cost_throughput', 'cost_gas', 'cost_energy'))),
+ ('V-C (V95): every design reports some cost', s['cost_any'] == P),
+ ('V-C (V95): few designs measured a cost where an NG-IoT deployment would run (device-class hardware)', s['where_device_class'] < P / 4),
+ ('V-D (V95): a confidentiality mechanism does not by itself conceal the update from the aggregator (HE, secret sharing, SMPC each fall short)',
+  s['conceal_he'] < s['mech_he'] and s['conceal_secret_sharing'] < s['mech_secret_sharing'] and s['conceal_smpc'] < s['mech_smpc']),
+ ('V-E (V95): the content checks are those that observe the update; only a few of them do so without observing it',
+  s['cc_content_no'] < s['cc_content'] / 4 and s['cc_content_yes'] + s['cc_content_partly'] > s['cc_content'] / 2),
+ ('V-E (V95): one further design verifies an inference but no update; two verify nothing', s['cc_other_nocheck'] == 1 and s['cc_none'] == 2),
 ]
 bad = 0
 for what, ok in CLAIMS:
